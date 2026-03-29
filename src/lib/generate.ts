@@ -93,7 +93,7 @@ ${config.specialRequests ? `- Special requests: ${config.specialRequests}` : ''}
 ## YOUR TASK
 Take the template structure above and bring it to life in the "${config.theme}" setting. Create:
 
-1. A compelling title and tagline
+1. A compelling title and taglineSwitch to streaming API to fix Vercel timeout
 2. A detailed host guide with scene-by-scene instructions and timing
 3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count \u2014 combine or split archetypes as needed)
 4. Clue cards that follow the clue logic framework

@@ -109,7 +109,7 @@ IMPORTANT RULES:
 - The menu should be actually cookable by a home cook
 - All content must be themed to "${config.theme}"
 
-Respond with valid JSON matching this exact schema (no markdown, no backticks, just JSON):
+Respond with ONLY valid JSON matching this exact schema. Do NOT include any text before or after the JSON — no markdown, no backticks, no explanations. Output ONLY the JSON object:
 {
   "title": "string",
   "tagline": "string",
@@ -169,6 +169,31 @@ Respond with valid JSON matching this exact schema (no markdown, no backticks, j
 }`
 }
 
+// Extract the first complete JSON object from a string using brace counting.
+// Handles braces inside strings and escaped quotes correctly.
+function extractJSON(text: string): string {
+  const start = text.indexOf('{')
+  if (start === -1) throw new Error('No JSON object found in response')
+
+  let depth = 0
+  let inString = false
+  let escape = false
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\' && inString) { escape = true; continue }
+    if (ch === '"' && !escape) { inString = !inString; continue }
+    if (inString) continue
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return text.slice(start, i + 1)
+    }
+  }
+  throw new Error('No complete JSON object found in response')
+}
+
 export async function generateMystery(config: MysteryConfig): Promise<GeneratedMystery> {
   const template = selectTemplate(config.guestCount)
   const prompt = buildPrompt(config, template)
@@ -182,13 +207,8 @@ export async function generateMystery(config: MysteryConfig): Promise<GeneratedM
   const finalMessage = await stream.finalMessage()
   const text = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
 
-  // Parse the JSON response
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) {
-    throw new Error('Failed to generate mystery — invalid response format')
-  }
-
-  return JSON.parse(jsonMatch[0]) as GeneratedMystery
+  const jsonStr = extractJSON(text)
+  return JSON.parse(jsonStr) as GeneratedMystery
 }
 
 export function generateMysteryStream(config: MysteryConfig): ReadableStream {
@@ -205,24 +225,30 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
         })
 
         let fullText = ''
+        let lastProgressSent = 0
 
         stream.on('text', (text) => {
           fullText += text
-          // Send a heartbeat to keep connection alive
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`))
+          // Only send progress every 500 chars to avoid flooding
+          if (fullText.length - lastProgressSent >= 500) {
+            lastProgressSent = fullText.length
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`))
+          }
         })
 
         const finalMessage = await stream.finalMessage()
         const responseText = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
 
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format' })}\n\n`))
+        let jsonStr: string
+        try {
+          jsonStr = extractJSON(responseText)
+        } catch {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format — could not extract JSON from AI response' })}\n\n`))
           controller.close()
           return
         }
 
-        const mystery = JSON.parse(jsonMatch[0])
+        const mystery = JSON.parse(jsonStr)
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'complete', mystery })}\n\n`))
         controller.close()
       } catch (err) {

@@ -1,22 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { generateMystery, type MysteryConfig } from '@/lib/generate'
+import { generateMysteryStream, type MysteryConfig } from '@/lib/generate'
 
-export const maxDuration = 60 // Allow up to 60s for generation (Vercel Pro)
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
     const { sessionId } = await req.json()
 
     if (!sessionId) {
-      return NextResponse.json({ error: 'Missing session ID' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'Missing session ID' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     // Verify payment was completed
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
     if (session.payment_status !== 'paid') {
-      return NextResponse.json({ error: 'Payment not completed' }, { status: 402 })
+      return new Response(JSON.stringify({ error: 'Payment not completed' }), {
+        status: 402,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     // Extract mystery config from Stripe metadata
@@ -28,13 +34,21 @@ export async function POST(req: NextRequest) {
       specialRequests: session.metadata?.specialRequests || '',
     }
 
-    // Generate the mystery
-    const mystery = await generateMystery(config)
+    const stream = generateMysteryStream(config)
 
-    return NextResponse.json({ mystery })
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
   } catch (err: unknown) {
     console.error('Generation error:', err)
     const message = err instanceof Error ? err.message : 'Failed to generate mystery'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }

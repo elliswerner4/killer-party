@@ -74,7 +74,7 @@ function buildPrompt(config: MysteryConfig, template: MysteryTemplate): string {
 
   return `You are a professional mystery writer creating a complete murder mystery dinner party package.
 
-## TEMPLATE STRUCTURE (use this exact plot skeleton \u2014 do NOT deviate from the logical structure)
+## TEMPLATE STRUCTURE (use this exact plot skeleton — do NOT deviate from the logical structure)
 ${JSON.stringify(template.structure, null, 2)}
 
 ## CLUE LOGIC (follow this framework exactly)
@@ -86,16 +86,16 @@ ${template.characterArchetypes.join(', ')}
 ## CUSTOMIZATION PARAMETERS
 - Theme/Setting: ${config.theme}
 - Number of guests: ${config.guestCount}
-- Difficulty: ${config.difficulty} \u2014 ${difficultyGuide[config.difficulty]}
+- Difficulty: ${config.difficulty} — ${difficultyGuide[config.difficulty]}
 - Tier: ${config.tier}
 ${config.specialRequests ? `- Special requests: ${config.specialRequests}` : ''}
 
 ## YOUR TASK
 Take the template structure above and bring it to life in the "${config.theme}" setting. Create:
 
-1. A compelling title and taglineSwitch to streaming API to fix Vercel timeout
+1. A compelling title and tagline
 2. A detailed host guide with scene-by-scene instructions and timing
-3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count \u2014 combine or split archetypes as needed)
+3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count — combine or split archetypes as needed)
 4. Clue cards that follow the clue logic framework
 5. A complete accusation and reveal sequence
 6. A themed dinner menu with cocktails
@@ -103,7 +103,7 @@ Take the template structure above and bring it to life in the "${config.theme}" 
 
 IMPORTANT RULES:
 - Every character must have at least one secret that affects the story
-- Clue logic must be airtight \u2014 the solution must be definitively provable
+- Clue logic must be airtight — the solution must be definitively provable
 - The experience should last 2.5-3.5 hours
 - Character sheets should have enough material for guests to improvise naturally
 - The menu should be actually cookable by a home cook
@@ -129,8 +129,8 @@ Respond with valid JSON matching this exact schema (no markdown, no backticks, j
     {
       "name": "string",
       "role": "string (their public role in the setting)",
-      "publicBio": "string (what everyone knows about them \u2014 2-3 sentences)",
-      "privateSecrets": "string (what only they know \u2014 this drives their behavior)",
+      "publicBio": "string (what everyone knows about them — 2-3 sentences)",
+      "privateSecrets": "string (what only they know — this drives their behavior)",
       "goals": "string (what they want to achieve tonight)",
       "relationships": "string (how they relate to every other character)",
       "conversationPrompts": ["string (5 things they might say to spark interaction)"]
@@ -148,15 +148,15 @@ Respond with valid JSON matching this exact schema (no markdown, no backticks, j
   "reveal": {
     "buildup": "string (the host reads this to build tension before accusations)",
     "accusationPrompt": "string (what the host says to prompt guests to accuse)",
-    "revealScript": "string (the full dramatic reveal \u2014 who did it, how, and why)",
-    "epilogue": "string (what happened to each character after \u2014 a satisfying ending)"
+    "revealScript": "string (the full dramatic reveal — who did it, how, and why)",
+    "epilogue": "string (what happened to each character after — a satisfying ending)"
   },
   "menu": {
     "theme": "string (the culinary direction)",
-    "appetizers": ["string (dish name \u2014 brief description)"],
+    "appetizers": ["string (dish name — brief description)"],
     "mains": ["string"],
     "desserts": ["string"],
-    "cocktails": ["string (cocktail name \u2014 ingredients \u2014 brief instructions)"],
+    "cocktails": ["string (cocktail name — ingredients — brief instructions)"],
     "nonAlcoholic": ["string"]
   },
   "atmosphere": {
@@ -173,19 +173,63 @@ export async function generateMystery(config: MysteryConfig): Promise<GeneratedM
   const template = selectTemplate(config.guestCount)
   const prompt = buildPrompt(config, template)
 
-  const message = await anthropic.messages.create({
+  const stream = anthropic.messages.stream({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 8000,
     messages: [{ role: 'user', content: prompt }],
   })
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
+  const finalMessage = await stream.finalMessage()
+  const text = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
 
   // Parse the JSON response
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) {
-    throw new Error('Failed to generate mystery \u2014 invalid response format')
+    throw new Error('Failed to generate mystery — invalid response format')
   }
 
   return JSON.parse(jsonMatch[0]) as GeneratedMystery
+}
+
+export function generateMysteryStream(config: MysteryConfig): ReadableStream {
+  const template = selectTemplate(config.guestCount)
+  const prompt = buildPrompt(config, template)
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        const stream = anthropic.messages.stream({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8000,
+          messages: [{ role: 'user', content: prompt }],
+        })
+
+        let fullText = ''
+
+        stream.on('text', (text) => {
+          fullText += text
+          // Send a heartbeat to keep connection alive
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`))
+        })
+
+        const finalMessage = await stream.finalMessage()
+        const responseText = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
+
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format' })}\n\n`))
+          controller.close()
+          return
+        }
+
+        const mystery = JSON.parse(jsonMatch[0])
+        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'complete', mystery })}\n\n`))
+        controller.close()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Generation failed'
+        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`))
+        controller.close()
+      }
+    },
+  })
 }

@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-noir text-gray-100;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-blood hover:bg-blood-light text-white font-bold py-3 px-8 rounded-lg
+           transition-all duration-200 shadow-lg hover:shadow-xl
+           hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-secondary {
+    @apply bg-transparent border-2 border-gold text-gold hover:bg-gold
+           hover:text-noir-dark font-bold py-3 px-8 rounded-lg
+           transition-all duration-200;
+  }
+  .card {
+    @apply bg-noir-light border border-gray-700 rounded-xl p-6 shadow-lg;
+  }
+  .input-field {
+    @apply w-full bg-noir border border-gray-600 rounded-lg px-4 py-3
+           text-gray-100 placeholder-gray-500 focus:outline-none
+           focus:border-gold focus:ring-1 focus:ring-gold transition-colors;
+  }
+  .label {
+    @apply block text-sm font-medium text-gray-300 mb-2;
+  }
+}
+
+/* Print styles for mystery packages */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; color: black; }
+  .print-page-break { page-break-before: always; }
+}

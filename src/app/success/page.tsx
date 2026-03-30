@@ -55,13 +55,18 @@ function SuccessContent() {
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const event = JSON.parse(line.slice(6))
-              if (event.type === 'progress') {
-                setProgress(`Crafting your mystery... (${Math.round(event.length / 100)}k chars)`)
-              } else if (event.type === 'complete') {
-                setMystery(event.mystery)
-              } else if (event.type === 'error') {
-                throw new Error(event.error)
+              try {
+                const event = JSON.parse(line.slice(6))
+                if (event.type === 'progress') {
+                  setProgress(`Crafting your mystery... (${Math.round(event.length / 100)}k chars)`)
+                } else if (event.type === 'complete') {
+                  setMystery(event.mystery)
+                } else if (event.type === 'error') {
+                  throw new Error(event.error)
+                }
+              } catch (parseErr) {
+                if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr
+                console.warn('Skipped malformed SSE event:', line.slice(0, 100))
               }
             }
           }
@@ -93,7 +98,7 @@ function SuccessContent() {
         <p className="text-blood-light font-display text-2xl mb-4">Something Went Wrong</p>
         <p className="text-gray-400 mb-6 max-w-md">{error}</p>
         <p className="text-gray-500 text-sm">
-          Don&apos;t worry — your payment is safe. Please email{' '}
+          Don&apos;t worry â your payment is safe. Please email{' '}
           <a href="mailto:support@killerparty.co" className="text-gold underline">
             support@killerparty.co
           </a>{' '}

@@ -29,9 +29,11 @@ export interface GeneratedMystery {
   characters: {
     name: string
     role: string
+    specialSkill: string
     publicBio: string
     privateSecrets: string
     goals: string
+    tasks: string[]
     relationships: string
     conversationPrompts: string[]
   }[]
@@ -74,7 +76,7 @@ function buildPrompt(config: MysteryConfig, template: MysteryTemplate): string {
 
   return `You are a professional mystery writer creating a complete murder mystery dinner party package.
 
-## TEMPLATE STRUCTURE (use this exact plot skeleton — do NOT deviate from the logical structure)
+## TEMPLATE STRUCTURE (use this exact plot skeleton â do NOT deviate from the logical structure)
 ${JSON.stringify(template.structure, null, 2)}
 
 ## CLUE LOGIC (follow this framework exactly)
@@ -86,7 +88,7 @@ ${template.characterArchetypes.join(', ')}
 ## CUSTOMIZATION PARAMETERS
 - Theme/Setting: ${config.theme}
 - Number of guests: ${config.guestCount}
-- Difficulty: ${config.difficulty} — ${difficultyGuide[config.difficulty]}
+- Difficulty: ${config.difficulty} â ${difficultyGuide[config.difficulty]}
 - Tier: ${config.tier}
 ${config.specialRequests ? `- Special requests: ${config.specialRequests}` : ''}
 
@@ -95,21 +97,27 @@ Take the template structure above and bring it to life in the "${config.theme}" 
 
 1. A compelling title and tagline
 2. A detailed host guide with scene-by-scene instructions and timing
-3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count — combine or split archetypes as needed)
+3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count â combine or split archetypes as needed)
 4. Clue cards that follow the clue logic framework
 5. A complete accusation and reveal sequence
 6. A themed dinner menu with cocktails
 7. An atmosphere guide (decorations, music, dress code)
 
-IMPORTANT RULES:
-- Every character must have at least one secret that affects the story
-- Clue logic must be airtight — the solution must be definitively provable
+CRITICAL CHARACTER DESIGN RULES:
+- Every character MUST have a "specialSkill" â a unique ability, expertise, or talent tied to the theme (e.g., a lockpicker, a poison expert, a forger, a lip-reader). This skill should be relevant to the investigation and give the player something specific they can "do" that no one else can.
+- Every character MUST have 3-5 specific "tasks" â concrete actions they need to accomplish during the evening that drive the plot forward. Tasks should create natural conflicts and interactions with other characters. Examples: "Privately confront [character] about the missing ledger before Act 3", "Slip the sealed envelope to [character] when no one is looking", "Convince at least 2 guests that you were in the garden during the blackout". Tasks should feel like mini-missions that keep players actively engaged.
+- Every character's "privateSecrets" must contain AT LEAST two secrets: one that is directly connected to the murder plot, and one that is a personal secret creating dramatic tension (affair, hidden identity, secret alliance, debt, etc.). Secrets should create webs â one character's secret should implicate or protect another character.
+- Goals should be specific and potentially conflicting with at least one other character's goals.
+- Conversation prompts should be designed to organically surface clues and create suspicion.
+
+ADDITIONAL RULES:
+- Clue logic must be airtight â the solution must be definitively provable
 - The experience should last 2.5-3.5 hours
 - Character sheets should have enough material for guests to improvise naturally
 - The menu should be actually cookable by a home cook
 - All content must be themed to "${config.theme}"
 
-Respond with ONLY valid JSON matching this exact schema. Do NOT include any text before or after the JSON — no markdown, no backticks, no explanations. Output ONLY the JSON object:
+Respond with valid JSON matching this exact schema (no markdown, no backticks, just JSON):
 {
   "title": "string",
   "tagline": "string",
@@ -129,11 +137,13 @@ Respond with ONLY valid JSON matching this exact schema. Do NOT include any text
     {
       "name": "string",
       "role": "string (their public role in the setting)",
-      "publicBio": "string (what everyone knows about them — 2-3 sentences)",
-      "privateSecrets": "string (what only they know — this drives their behavior)",
-      "goals": "string (what they want to achieve tonight)",
-      "relationships": "string (how they relate to every other character)",
-      "conversationPrompts": ["string (5 things they might say to spark interaction)"]
+      "specialSkill": "string (a unique ability or expertise that only this character has â relevant to investigation, e.g., 'Expert forger â can analyze handwriting and detect fakes' or 'Former locksmith â can determine how any lock was picked')",
+      "publicBio": "string (what everyone knows about them â 2-3 sentences)",
+      "privateSecrets": "string (at least 2 secrets: one tied to the murder plot, one personal â both creating dramatic tension)",
+      "goals": "string (specific objectives for the evening that conflict with at least one other character's goals)",
+      "tasks": ["string (3-5 specific actions the player must accomplish during the game, e.g., 'Privately confront X about the missing documents before Act 3', 'Plant the red envelope in Y's coat pocket without being seen')"],
+      "relationships": "string (how they relate to every other character â include at least one hidden connection)",
+      "conversationPrompts": ["string (5 things they might say to spark interaction and organically surface clues)"]
     }
   ],
   "clues": [
@@ -148,15 +158,15 @@ Respond with ONLY valid JSON matching this exact schema. Do NOT include any text
   "reveal": {
     "buildup": "string (the host reads this to build tension before accusations)",
     "accusationPrompt": "string (what the host says to prompt guests to accuse)",
-    "revealScript": "string (the full dramatic reveal — who did it, how, and why)",
-    "epilogue": "string (what happened to each character after — a satisfying ending)"
+    "revealScript": "string (the full dramatic reveal â who did it, how, and why)",
+    "epilogue": "string (what happened to each character after â a satisfying ending)"
   },
   "menu": {
     "theme": "string (the culinary direction)",
-    "appetizers": ["string (dish name — brief description)"],
+    "appetizers": ["string (dish name â brief description)"],
     "mains": ["string"],
     "desserts": ["string"],
-    "cocktails": ["string (cocktail name — ingredients — brief instructions)"],
+    "cocktails": ["string (cocktail name â ingredients â brief instructions)"],
     "nonAlcoholic": ["string"]
   },
   "atmosphere": {
@@ -200,7 +210,7 @@ export async function generateMystery(config: MysteryConfig): Promise<GeneratedM
 
   const stream = anthropic.messages.stream({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 8000,
+    max_tokens: 12000,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -220,7 +230,7 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
       try {
         const stream = anthropic.messages.stream({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
+          max_tokens: 12000,
           messages: [{ role: 'user', content: prompt }],
         })
 
@@ -243,7 +253,7 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
         try {
           jsonStr = extractJSON(responseText)
         } catch {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format — could not extract JSON from AI response' })}\n\n`))
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format â could not extract JSON from AI response' })}\n\n`))
           controller.close()
           return
         }

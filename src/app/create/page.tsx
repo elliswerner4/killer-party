@@ -8,14 +8,14 @@ const THEMES = [
   { id: 'hollywood-noir', name: 'Hollywood Noir', desc: 'Starlets, directors, and a death on set' },
   { id: 'space-station', name: 'Space Station Omega', desc: 'Crew members, airlocks, and someone who doesn\'t belong' },
   { id: 'tropical-island', name: 'Tropical Island Resort', desc: 'Paradise with a dark secret beneath the surface' },
-  { id: 'haunted-mansion', name: 'Haunted Mansion', desc: 'A s\u00E9ance gone wrong and a very real murder' },
+  { id: 'haunted-mansion', name: 'Haunted Mansion', desc: 'A sÃ©ance gone wrong and a very real murder' },
   { id: 'wild-west', name: 'Wild West Saloon', desc: 'Outlaws, gold, and a showdown at sundown' },
   { id: 'art-heist', name: 'Art Gallery Heist', desc: 'A stolen masterpiece and a dead curator' },
 ]
 
 const DIFFICULTIES = [
-  { id: 'casual', name: 'Casual', desc: 'Easy-going \u2014 great for first-timers and mixed groups' },
-  { id: 'intermediate', name: 'Intermediate', desc: 'Balanced \u2014 enough to challenge without frustrating' },
+  { id: 'casual', name: 'Casual', desc: 'Easy-going â great for first-timers and mixed groups' },
+  { id: 'intermediate', name: 'Intermediate', desc: 'Balanced â enough to challenge without frustrating' },
   { id: 'devious', name: 'Devious', desc: 'Complex clues, red herrings, and multiple suspects' },
 ]
 
@@ -101,7 +101,7 @@ export default function CreatePage() {
                 <p className="font-display text-xl text-white capitalize">{t}</p>
                 <p className="text-2xl font-display text-gold">${t === 'classic' ? 35 : 49}</p>
                 <p className="text-gray-500 text-xs mt-1">
-                  {t === 'classic' ? '4\u20138 guests \u2022 curated themes' : 'Up to 12 guests \u2022 any theme'}
+                  {t === 'classic' ? '4â8 guests â¢ curated themes' : 'Up to 12 guests â¢ any theme'}
                 </p>
               </button>
             ))}
@@ -111,7 +111,7 @@ export default function CreatePage() {
         {/* Theme */}
         <div>
           <label className="label">Theme</label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {THEMES.map((t) => (
               <button
                 key={t.id}
@@ -171,7 +171,7 @@ export default function CreatePage() {
         {/* Difficulty */}
         <div>
           <label className="label">Difficulty</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {DIFFICULTIES.map((d) => (
               <button
                 key={d.id}
@@ -214,7 +214,7 @@ export default function CreatePage() {
             disabled={loading}
             className="btn-primary text-lg py-4 px-12 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Setting up your mystery...' : `Checkout \u2014 $${price}`}
+            {loading ? 'Setting up your mystery...' : `Checkout â $${price}`}
           </button>
           <p className="text-gray-600 text-xs mt-3">
             Secure payment via Stripe. Your mystery generates instantly after payment.

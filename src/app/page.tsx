@@ -14,13 +14,13 @@ export default function Home() {
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             Choose your theme, your guest count, and your style.
-            We generate a completely unique dinner party experience —
-            character sheets, clues, host guide, menu, and all —
+            We generate a completely unique dinner party experience â
+            character sheets, clues, host guide, menu, and all â
             ready in minutes.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="/create" className="btn-primary text-lg py-4 px-10">
-              Create Your Mystery — From $35
+              Create Your Mystery â From $35
             </a>
             <a href="#how-it-works" className="btn-secondary text-lg py-4 px-10">
               See How It Works
@@ -57,39 +57,39 @@ export default function Home() {
           </h2>
           <p className="text-gray-400 text-center max-w-2xl mx-auto mb-12">
             Every Killer Party package is a complete, ready-to-host experience.
-            No prep stress, no missing pieces — just an incredible evening.
+            No prep stress, no missing pieces â just an incredible evening.
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
                 title: 'Host Guide',
                 desc: 'Scene-by-scene instructions with timing cues, reveal moments, and tips for building suspense.',
-                icon: '📋',
+                icon: 'ð',
               },
               {
                 title: 'Character Sheets',
-                desc: 'One per guest — backstory, secrets, motivations, and conversation prompts to keep everyone in character.',
-                icon: '🎭',
+                desc: 'One per guest â backstory, secrets, motivations, and conversation prompts to keep everyone in character.',
+                icon: 'ð­',
               },
               {
                 title: 'Clue Cards',
-                desc: 'Printable evidence — letters, photographs, receipts, and documents that drive the investigation.',
-                icon: '🔍',
+                desc: 'Printable evidence â letters, photographs, receipts, and documents that drive the investigation.',
+                icon: 'ð',
               },
               {
                 title: 'Accusation & Reveal',
                 desc: 'A dramatic reveal script that ties every thread together for a satisfying conclusion.',
-                icon: '⚖️',
+                icon: 'â¦ï¸',
               },
               {
                 title: 'Themed Menu',
-                desc: 'Recipes and cocktail pairings that match your era and setting. From canapés to nightcaps.',
-                icon: '🍷',
+                desc: 'Recipes and cocktail pairings that match your era and setting. From canapÃ©s to nightcaps.',
+                icon: 'ð·',
               },
               {
                 title: 'Atmosphere Guide',
                 desc: 'Decoration ideas, music suggestions, dress code guidance, and printable table cards.',
-                icon: '🕯️',
+                icon: 'ð¯ï¸',
               },
             ].map((item) => (
               <div key={item.title} className="card hover:border-gold/40 transition-colors">
@@ -148,11 +148,11 @@ export default function Home() {
               <p className="text-4xl font-display text-gold mb-1">$35</p>
               <p className="text-gray-500 text-sm mb-6">one-time purchase</p>
               <ul className="text-left text-gray-300 text-sm space-y-3 mb-8">
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> 4–8 guests</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Curated theme selection</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Full character sheets &amp; clues</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Host guide &amp; reveal script</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Menu &amp; atmosphere guide</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> 4â8 guests</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Curated theme selection</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Full character sheets &amp; clues</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Host guide &amp; reveal script</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Menu &amp; atmosphere guide</li>
               </ul>
               <a href="/create?tier=classic" className="btn-secondary w-full block">Choose Classic</a>
             </div>
@@ -164,11 +164,11 @@ export default function Home() {
               <p className="text-4xl font-display text-gold mb-1">$49</p>
               <p className="text-gray-500 text-sm mb-6">one-time purchase</p>
               <ul className="text-left text-gray-300 text-sm space-y-3 mb-8">
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Up to 12 guests</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Any theme — fully custom</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Extra clue complexity &amp; red herrings</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Everything in Classic</li>
-                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">✓</span> Printable name badges &amp; props</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Up to 12 guests</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Any theme â fully custom</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Extra clue complexity &amp; red herrings</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Everything in Classic</li>
+                <li className="flex items-start gap-2"><span className="text-gold mt-0.5">â</span> Printable name badges &amp; props</li>
               </ul>
               <a href="/create?tier=grand" className="btn-primary w-full block">Choose Grand</a>
             </div>
@@ -182,7 +182,7 @@ export default function Home() {
           <h2 className="font-display text-3xl text-center mb-12">
             What Hosts Are Saying
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
             {[
               {
                 quote: "My friends are STILL talking about it three weeks later. The character sheets were so detailed that everyone stayed in character the whole night.",
@@ -190,7 +190,7 @@ export default function Home() {
                 detail: '1920s Speakeasy, 8 guests',
               },
               {
-                quote: "I've bought mystery boxes before — this was on another level. The clues actually made sense and the reveal was genuinely surprising.",
+                quote: "I've bought mystery boxes before â this was on another level. The clues actually made sense and the reveal was genuinely surprising.",
                 name: 'James K.',
                 detail: 'Victorian Manor, 6 guests',
               },
@@ -201,7 +201,7 @@ export default function Home() {
               },
             ].map((t) => (
               <div key={t.name} className="card">
-                <p className="text-gray-300 text-sm leading-relaxed italic mb-4">\"{t.quote}\"</p>
+                <p className="text-gray-300 text-sm leading-relaxed italic mb-4">"{t.quote}"</p>
                 <p className="text-gold font-medium text-sm">{t.name}</p>
                 <p className="text-gray-500 text-xs">{t.detail}</p>
               </div>

@@ -20,9 +20,11 @@ interface Mystery {
   characters: {
     name: string
     role: string
+    specialSkill: string
     publicBio: string
     privateSecrets: string
     goals: string
+    tasks: string[]
     relationships: string
     conversationPrompts: string[]
   }[]
@@ -56,11 +58,75 @@ interface Mystery {
   }
 }
 
-type Tab = 'host' | 'characters' | 'clues' | 'reveal' | 'menu' | 'atmosphere'
+type Tab = 'host' | 'characters' | 'clues' | 'reveal' | 'menu' | 'atmosphere' | 'share'
+
+interface CharacterLink {
+  name: string
+  role: string
+  slug: string
+  url: string
+}
 
 export function MysteryViewer({ mystery }: { mystery: Mystery }) {
   const [activeTab, setActiveTab] = useState<Tab>('host')
   const [selectedCharacter, setSelectedCharacter] = useState(0)
+  const [gameId, setGameId] = useState<string | null>(null)
+  const [characterLinks, setCharacterLinks] = useState<CharacterLink[]>([])
+  const [sharing, setSharing] = useState(false)
+  const [shareError, setShareError] = useState('')
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+
+  async function createShareLinks() {
+    setSharing(true)
+    setShareError('')
+    try {
+      const res = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mystery }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create share links')
+      }
+      const data = await res.json()
+      setGameId(data.gameId)
+
+      const baseUrl = window.location.origin
+      const links: CharacterLink[] = Object.entries(data.characterSlugs as Record<string, number>).map(
+        ([slug, index]) => ({
+          name: mystery.characters[index].name,
+          role: mystery.characters[index].role,
+          slug,
+          url: `${baseUrl}/game/${data.gameId}/character/${slug}`,
+        })
+      )
+      setCharacterLinks(links)
+      setActiveTab('share')
+    } catch (err: unknown) {
+      setShareError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  async function copyLink(url: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 2000)
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement('input')
+      input.value = url
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      document.body.removeChild(input)
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 2000)
+    }
+  }
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'host', label: 'Host Guide' },
@@ -69,6 +135,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
     { id: 'reveal', label: 'Reveal' },
     { id: 'menu', label: 'Menu' },
     { id: 'atmosphere', label: 'Atmosphere' },
+    ...(characterLinks.length > 0 ? [{ id: 'share' as Tab, label: 'Share Links' }] : []),
   ]
 
   return (
@@ -80,22 +147,34 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
         <p className="text-gray-400 text-lg italic">{mystery.tagline}</p>
         <div className="flex justify-center gap-6 mt-4 text-sm text-gray-500">
           <span>{mystery.guestCount} guests</span>
-          <span>\u2022</span>
+          <span>â¢</span>
           <span className="capitalize">{mystery.difficulty}</span>
-          <span>\u2022</span>
+          <span>â¢</span>
           <span>{mystery.theme}</span>
         </div>
       </div>
 
-      {/* Print All button */}
-      <div className="text-center mb-8 no-print">
+      {/* Action buttons */}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8 no-print">
         <button onClick={() => window.print()} className="btn-secondary text-sm py-2 px-6">
           Print Entire Package
         </button>
+        <button
+          onClick={createShareLinks}
+          disabled={sharing || characterLinks.length > 0}
+          className="btn-primary text-sm py-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {sharing ? 'Creating links...' : characterLinks.length > 0 ? 'Links Created!' : 'Share with Guests'}
+        </button>
       </div>
+      {shareError && (
+        <div className="bg-blood/20 border border-blood rounded-lg p-3 text-red-300 text-sm text-center mb-6">
+          {shareError}
+        </div>
+      )}
 
       {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-2 mb-8 justify-center no-print">
+      <div className="flex flex-wrap gap-2 mb-8 justify-center no-print overflow-x-auto pb-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -125,10 +204,10 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
               <p className="text-gray-300 leading-relaxed whitespace-pre-line">{mystery.hostGuide.timeline}</p>
             </div>
             {[
-              { title: 'Act 1 \u2014 The Gathering', content: mystery.hostGuide.act1 },
-              { title: 'Act 2 \u2014 The Discovery', content: mystery.hostGuide.act2 },
-              { title: 'Act 3 \u2014 The Investigation', content: mystery.hostGuide.act3 },
-              { title: 'Act 4 \u2014 The Reveal', content: mystery.hostGuide.act4 },
+              { title: 'Act 1 â The Gathering', content: mystery.hostGuide.act1 },
+              { title: 'Act 2 â The Discovery', content: mystery.hostGuide.act2 },
+              { title: 'Act 3 â The Investigation', content: mystery.hostGuide.act3 },
+              { title: 'Act 4 â The Reveal', content: mystery.hostGuide.act4 },
             ].map((act) => (
               <div key={act.title}>
                 <h3 className="font-display text-xl text-white mb-3">{act.title}</h3>
@@ -173,10 +252,15 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                     {mystery.characters[selectedCharacter].name}
                   </h3>
                   <p className="text-gold italic">{mystery.characters[selectedCharacter].role}</p>
+                  {mystery.characters[selectedCharacter].specialSkill && (
+                    <p className="text-sm text-gray-400 mt-2 bg-noir/50 inline-block px-3 py-1 rounded-full border border-gray-600">
+                      <span className="text-gold">Skill:</span> {mystery.characters[selectedCharacter].specialSkill}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
-                    Public Bio \u2014 Everyone Knows This
+                    Public Bio â Everyone Knows This
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
                     {mystery.characters[selectedCharacter].publicBio}
@@ -184,7 +268,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                 </div>
                 <div className="bg-blood/10 border border-blood/30 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-blood-light uppercase tracking-wide mb-2">
-                    Your Secrets \u2014 For Your Eyes Only
+                    Your Secrets â For Your Eyes Only
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
                     {mystery.characters[selectedCharacter].privateSecrets}
@@ -198,6 +282,21 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                     {mystery.characters[selectedCharacter].goals}
                   </p>
                 </div>
+                {mystery.characters[selectedCharacter].tasks && mystery.characters[selectedCharacter].tasks.length > 0 && (
+                  <div className="bg-gold/5 border border-gold/20 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gold uppercase tracking-wide mb-3">
+                      Your Missions
+                    </h4>
+                    <ul className="space-y-2">
+                      {mystery.characters[selectedCharacter].tasks.map((task, i) => (
+                        <li key={i} className="text-gray-300 text-sm pl-4 border-l-2 border-gold/40 flex items-start gap-2">
+                          <span className="text-gold/60 text-xs mt-0.5 shrink-0">#{i + 1}</span>
+                          {task}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
                     Your Relationships
@@ -213,7 +312,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   <ul className="space-y-2">
                     {mystery.characters[selectedCharacter].conversationPrompts.map((p, i) => (
                       <li key={i} className="text-gray-300 text-sm pl-4 border-l-2 border-gold/30">
-                        \"{p}\"
+                        "{p}"
                       </li>
                     ))}
                   </ul>
@@ -230,7 +329,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
             <p className="text-gray-500 text-sm mb-6 no-print">
               Print and cut these out. Hand them to the specified character at the specified time.
             </p>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-1 md:grid-cols-2 gap-4">
               {mystery.clues.map((clue) => (
                 <div key={clue.id} className="bg-noir border border-gray-700 rounded-lg p-5">
                   <div className="flex justify-between items-start mb-3">
@@ -322,6 +421,45 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                 <p className="text-gray-300 leading-relaxed whitespace-pre-line">{section.content}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* SHARE LINKS */}
+        {activeTab === 'share' && characterLinks.length > 0 && (
+          <div>
+            <h2 className="font-display text-2xl text-gold mb-2">Share with Your Guests</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Send each guest their unique link. They&apos;ll see only their character&apos;s info â backstory, secrets, goals, and conversation starters. No spoilers!
+            </p>
+            <div className="space-y-3">
+              {characterLinks.map((link, i) => (
+                <div
+                  key={link.slug}
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 bg-noir border border-gray-700 rounded-lg p-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium">{link.name}</p>
+                    <p className="text-gray-500 text-xs">{link.role}</p>
+                    <p className="text-gold/60 text-xs mt-1 truncate font-mono">{link.url}</p>
+                  </div>
+                  <button
+                    onClick={() => copyLink(link.url, i)}
+                    className={`shrink-0 text-sm py-2 px-4 rounded-lg font-medium transition-all ${
+                      copiedIndex === i
+                        ? 'bg-green-900/50 text-green-300 border border-green-700'
+                        : 'bg-noir-light text-gold border border-gray-600 hover:border-gold'
+                    }`}
+                  >
+                    {copiedIndex === i ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 p-4 bg-noir-light/50 border border-gray-700 rounded-lg">
+              <p className="text-gray-400 text-xs leading-relaxed">
+                <span className="text-gold font-medium">Tip:</span> Send each link privately (text or DM) so guests can&apos;t see each other&apos;s characters. Each page contains their secrets, goals, and conversation starters â everything they need to play.
+              </p>
+            </div>
           </div>
         )}
       </div>

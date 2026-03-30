@@ -2,10 +2,10 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Killer Party \u2014 Custom Murder Mystery Dinner Parties',
+  title: 'Killer Party â Custom Murder Mystery Dinner Parties',
   description: 'Generate a completely unique murder mystery dinner party in minutes. Custom characters, clues, host guide, menu, and more.',
   openGraph: {
-    title: 'Killer Party \u2014 Custom Murder Mystery Dinner Parties',
+    title: 'Killer Party â Custom Murder Mystery Dinner Parties',
     description: 'Generate a completely unique murder mystery dinner party in minutes.',
     type: 'website',
   },
@@ -17,10 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen font-body antialiased">
         <nav className="border-b border-gray-800 bg-noir-dark/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="/" className="font-display text-2xl text-gold tracking-wide">
+            <a href="/" className="font-display text-xl sm:text-2xl text-gold tracking-wide">
               Killer Party
             </a>
-            <a href="/create" className="btn-primary text-sm py-2 px-6">
+            <a href="/create" className="btn-primary text-xs sm:text-sm py-2 px-4 sm:px-6">
               Create Your Mystery
             </a>
           </div>

@@ -436,7 +436,7 @@ export default function CharacterView() {
         <div className="mt-8">
           <div className="card p-5 text-center">
             <p className="text-blood-light font-display text-xl mb-2">The Truth Is Out</p>
-            <p className="text-gray-400 text-sm">Look up from your phone â the host is revealing the killer!</p>
+            <p className="text-gray-400 text-sm">Look up from your phone — the host is revealing the killer!</p>
           </div>
         </div>
       )}

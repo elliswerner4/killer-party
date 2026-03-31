@@ -4,7 +4,7 @@ import { stripe, PRICES } from '@/lib/stripe'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { tier, theme, guestCount, difficulty, specialRequests } = body
+    const { tier, theme, guestCount, difficulty, specialRequests, guestProfiles } = body
 
     if (!tier || !theme || !guestCount || !difficulty) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -16,7 +16,19 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-    // Store mystery config in Stripe metadata so we can generate after payment
+    // Stripe metadata values must be strings under 500 chars.
+    // Guest profiles can be large, so we compress to just names + notes.
+    let guestProfilesMeta = ''
+    if (guestProfiles && Array.isArray(guestProfiles) && guestProfiles.length > 0) {
+      const compact = guestProfiles.map((g: { name: string; personality: string; dietary: string }) => {
+        const parts = [g.name]
+        if (g.personality) parts.push(`(${g.personality})`)
+        if (g.dietary) parts.push(`[${g.dietary}]`)
+        return parts.join(' ')
+      })
+      guestProfilesMeta = compact.join('; ').slice(0, 490)
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -25,8 +37,8 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Killer Party \u2014 ${tier === 'classic' ? 'Classic' : 'Grand'} Mystery`,
-              description: `${theme} \u2022 ${guestCount} guests \u2022 ${difficulty} difficulty`,
+              name: `Killer Party â ${tier === 'classic' ? 'Classic' : 'Grand'} Mystery`,
+              description: `${theme} â¢ ${guestCount} guests â¢ ${difficulty} difficulty`,
             },
             unit_amount: PRICES[tier as keyof typeof PRICES],
           },
@@ -38,7 +50,8 @@ export async function POST(req: NextRequest) {
         theme,
         guestCount: String(guestCount),
         difficulty,
-        specialRequests: specialRequests || '',
+        specialRequests: (specialRequests || '').slice(0, 490),
+        guestProfiles: guestProfilesMeta,
       },
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/create`,

@@ -8,14 +8,14 @@ const THEMES = [
   { id: 'hollywood-noir', name: 'Hollywood Noir', desc: 'Starlets, directors, and a death on set' },
   { id: 'space-station', name: 'Space Station Omega', desc: 'Crew members, airlocks, and someone who doesn\'t belong' },
   { id: 'tropical-island', name: 'Tropical Island Resort', desc: 'Paradise with a dark secret beneath the surface' },
-  { id: 'haunted-mansion', name: 'Haunted Mansion', desc: 'A sÃ©ance gone wrong and a very real murder' },
+  { id: 'haunted-mansion', name: 'Haunted Mansion', desc: 'A séance gone wrong and a very real murder' },
   { id: 'wild-west', name: 'Wild West Saloon', desc: 'Outlaws, gold, and a showdown at sundown' },
   { id: 'art-heist', name: 'Art Gallery Heist', desc: 'A stolen masterpiece and a dead curator' },
 ]
 
 const DIFFICULTIES = [
-  { id: 'casual', name: 'Casual', desc: 'Easy-going â great for first-timers and mixed groups' },
-  { id: 'intermediate', name: 'Intermediate', desc: 'Balanced â enough to challenge without frustrating' },
+  { id: 'casual', name: 'Casual', desc: 'Easy-going — great for first-timers and mixed groups' },
+  { id: 'intermediate', name: 'Intermediate', desc: 'Balanced — enough to challenge without frustrating' },
   { id: 'devious', name: 'Devious', desc: 'Complex clues, red herrings, and multiple suspects' },
 ]
 
@@ -141,7 +141,7 @@ export default function CreatePage() {
                 <p className="font-display text-xl text-white capitalize">{t}</p>
                 <p className="text-2xl font-display text-gold">${t === 'classic' ? 35 : 49}</p>
                 <p className="text-gray-500 text-xs mt-1">
-                  {t === 'classic' ? '4â8 guests â¢ curated themes' : 'Up to 12 guests â¢ any theme'}
+                  {t === 'classic' ? '4–8 guests • curated themes' : 'Up to 12 guests • any theme'}
                 </p>
               </button>
             ))}
@@ -219,7 +219,7 @@ export default function CreatePage() {
               Personalize Characters
               <span className="text-gold ml-2 text-xs font-normal tracking-normal normal-case">NEW</span>
             </label>
-            <span className="text-gray-500 text-sm ml-auto">{showGuests ? 'â²' : 'â¼'}</span>
+            <span className="text-gray-500 text-sm ml-auto">{showGuests ? '▲' : '▼'}</span>
           </button>
           <p className="text-gray-500 text-xs mt-1 mb-3">
             Add your guests' names and personalities. We'll craft characters that bring out the best in each player.
@@ -244,7 +244,7 @@ export default function CreatePage() {
                     type="text"
                     value={guest.personality}
                     onChange={(e) => updateGuest(i, 'personality', e.target.value)}
-                    placeholder="Personality note (e.g., 'shy â give a bold character' or 'loves drama')"
+                    placeholder="Personality note (e.g., 'shy — give a bold character' or 'loves drama')"
                     className="input-field text-sm"
                     maxLength={200}
                   />
@@ -308,7 +308,7 @@ export default function CreatePage() {
             disabled={loading}
             className="btn-primary text-lg py-4 px-12 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Setting up your mystery...' : `Checkout â $${price}`}
+            {loading ? 'Setting up your mystery...' : `Checkout — $${price}`}
           </button>
           <p className="text-gray-600 text-xs mt-3">
             Secure payment via Stripe. Your mystery generates instantly after payment.

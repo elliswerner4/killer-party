@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Killer Party â ${tier === 'classic' ? 'Classic' : 'Grand'} Mystery`,
-              description: `${theme} â¢ ${guestCount} guests â¢ ${difficulty} difficulty`,
+              name: `Killer Party — ${tier === 'classic' ? 'Classic' : 'Grand'} Mystery`,
+              description: `${theme} • ${guestCount} guests • ${difficulty} difficulty`,
             },
             unit_amount: PRICES[tier as keyof typeof PRICES],
           },

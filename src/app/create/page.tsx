@@ -19,6 +19,12 @@ const DIFFICULTIES = [
   { id: 'devious', name: 'Devious', desc: 'Complex clues, red herrings, and multiple suspects' },
 ]
 
+interface GuestInfo {
+  name: string
+  personality: string
+  dietary: string
+}
+
 export default function CreatePage() {
   const [tier, setTier] = useState<'classic' | 'grand'>('grand')
   const [theme, setTheme] = useState('')
@@ -29,9 +35,33 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Guest personalization
+  const [guests, setGuests] = useState<GuestInfo[]>(
+    Array.from({ length: 6 }, () => ({ name: '', personality: '', dietary: '' }))
+  )
+  const [showGuests, setShowGuests] = useState(false)
+
   const maxGuests = tier === 'classic' ? 8 : 12
   const price = tier === 'classic' ? 35 : 49
   const showCustomTheme = tier === 'grand'
+
+  function handleGuestCountChange(count: number) {
+    setGuestCount(count)
+    setGuests((prev) => {
+      if (count > prev.length) {
+        return [...prev, ...Array.from({ length: count - prev.length }, () => ({ name: '', personality: '', dietary: '' }))]
+      }
+      return prev.slice(0, count)
+    })
+  }
+
+  function updateGuest(index: number, field: keyof GuestInfo, value: string) {
+    setGuests((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,6 +75,15 @@ export default function CreatePage() {
 
     setLoading(true)
 
+    // Build guest profiles for personalization
+    const guestProfiles = guests
+      .filter((g) => g.name.trim())
+      .map((g) => ({
+        name: g.name.trim(),
+        personality: g.personality.trim(),
+        dietary: g.dietary.trim(),
+      }))
+
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -55,6 +94,7 @@ export default function CreatePage() {
           guestCount,
           difficulty,
           specialRequests,
+          guestProfiles: guestProfiles.length > 0 ? guestProfiles : undefined,
         }),
       })
 
@@ -91,7 +131,7 @@ export default function CreatePage() {
                 type="button"
                 onClick={() => {
                   setTier(t)
-                  if (t === 'classic' && guestCount > 8) setGuestCount(8)
+                  if (t === 'classic' && guestCount > 8) handleGuestCountChange(8)
                   if (t === 'classic' && theme === 'custom') setTheme('')
                 }}
                 className={`card text-center cursor-pointer transition-all ${
@@ -159,13 +199,67 @@ export default function CreatePage() {
             min={4}
             max={maxGuests}
             value={guestCount}
-            onChange={(e) => setGuestCount(Number(e.target.value))}
+            onChange={(e) => handleGuestCountChange(Number(e.target.value))}
             className="w-full accent-gold"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>4 guests</span>
             <span>{maxGuests} guests</span>
           </div>
+        </div>
+
+        {/* Guest Personalization */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowGuests(!showGuests)}
+            className="flex items-center gap-3 w-full text-left"
+          >
+            <label className="label cursor-pointer mb-0">
+              Personalize Characters
+              <span className="text-gold ml-2 text-xs font-normal tracking-normal normal-case">NEW</span>
+            </label>
+            <span className="text-gray-500 text-sm ml-auto">{showGuests ? 'â²' : 'â¼'}</span>
+          </button>
+          <p className="text-gray-500 text-xs mt-1 mb-3">
+            Add your guests' names and personalities. We'll craft characters that bring out the best in each player.
+          </p>
+
+          {showGuests && (
+            <div className="space-y-4">
+              {guests.map((guest, i) => (
+                <div key={i} className="card p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-gold font-display text-sm">Guest {i + 1}</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={guest.name}
+                    onChange={(e) => updateGuest(i, 'name', e.target.value)}
+                    placeholder="Name (e.g., Sarah)"
+                    className="input-field text-sm"
+                    maxLength={50}
+                  />
+                  <input
+                    type="text"
+                    value={guest.personality}
+                    onChange={(e) => updateGuest(i, 'personality', e.target.value)}
+                    placeholder="Personality note (e.g., 'shy â give a bold character' or 'loves drama')"
+                    className="input-field text-sm"
+                    maxLength={200}
+                  />
+                  <input
+                    type="text"
+                    value={guest.dietary}
+                    onChange={(e) => updateGuest(i, 'dietary', e.target.value)}
+                    placeholder="Dietary restrictions (e.g., vegetarian, gluten-free)"
+                    className="input-field text-sm"
+                    maxLength={100}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Difficulty */}
@@ -194,7 +288,7 @@ export default function CreatePage() {
           <textarea
             value={specialRequests}
             onChange={(e) => setSpecialRequests(e.target.value)}
-            placeholder="Any dietary restrictions for the menu? Specific guest names to use? Want to embarrass the birthday person?"
+            placeholder="Inside jokes to weave in? A birthday surprise? Anything goes."
             className="input-field h-24 resize-none"
             maxLength={1000}
           />

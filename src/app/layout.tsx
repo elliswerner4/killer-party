@@ -3,10 +3,10 @@ import './globals.css'
 import ServiceWorkerRegistration from '@/components/ServiceWorker'
 
 export const metadata: Metadata = {
-  title: 'Killer Party â Custom Murder Mystery Dinner Parties',
+  title: 'Killer Party — Custom Murder Mystery Dinner Parties',
   description: 'Generate a completely unique murder mystery dinner party in minutes. Custom characters, clues, host guide, menu, and more.',
   openGraph: {
-    title: 'Killer Party â Custom Murder Mystery Dinner Parties',
+    title: 'Killer Party — Custom Murder Mystery Dinner Parties',
     description: 'Generate a completely unique murder mystery dinner party in minutes.',
     type: 'website',
   },

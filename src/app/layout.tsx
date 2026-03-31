@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import ServiceWorkerRegistration from '@/components/ServiceWorker'
 
 export const metadata: Metadata = {
   title: 'Killer Party â Custom Murder Mystery Dinner Parties',
@@ -14,6 +15,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
       <body className="min-h-screen font-body antialiased">
         <nav className="border-b border-gray-800 bg-noir-dark/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -25,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </a>
           </div>
         </nav>
+        <ServiceWorkerRegistration />
         <main>{children}</main>
         <footer className="border-t border-gray-800 mt-24 py-12 text-center text-gray-500 text-sm">
           <div className="max-w-6xl mx-auto px-6">

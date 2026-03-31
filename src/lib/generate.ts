@@ -3,12 +3,19 @@ import { selectTemplate, type MysteryTemplate } from './templates'
 
 const anthropic = new Anthropic()
 
+export interface GuestProfile {
+  name: string
+  personality: string
+  dietary: string
+}
+
 export interface MysteryConfig {
   tier: 'classic' | 'grand'
   theme: string
   guestCount: number
   difficulty: 'casual' | 'intermediate' | 'devious'
   specialRequests: string
+  guestProfiles?: GuestProfile[]
 }
 
 export interface GeneratedMystery {
@@ -91,6 +98,20 @@ ${template.characterArchetypes.join(', ')}
 - Difficulty: ${config.difficulty} â ${difficultyGuide[config.difficulty]}
 - Tier: ${config.tier}
 ${config.specialRequests ? `- Special requests: ${config.specialRequests}` : ''}
+${config.guestProfiles && config.guestProfiles.length > 0 ? `
+## GUEST PERSONALIZATION
+The host has provided information about their real guests. Use their REAL NAMES as character names and design characters that match each guest's personality. This is critical â it makes the experience personal and memorable.
+
+${config.guestProfiles.map((g, i) => `Guest ${i + 1}: "${g.name}"${g.personality ? ` â Personality: ${g.personality}` : ''}${g.dietary ? ` â Dietary: ${g.dietary}` : ''}`).join('\n')}
+
+PERSONALIZATION RULES:
+- Use these exact real names as the character names
+- If a guest is described as "shy", give them a bold/dramatic character to help them break out of their shell
+- If a guest "loves drama", give them a character at the center of the intrigue with lots of confrontation tasks
+- If a guest is "competitive", give them the most complex investigation angle
+- Adapt the menu to accommodate any dietary restrictions listed (provide alternative dishes where needed)
+- If fewer names are provided than the guest count, create original names for the remaining characters
+` : ''}
 
 ## YOUR TASK
 Take the template structure above and bring it to life in the "${config.theme}" setting. Create:
@@ -103,19 +124,30 @@ Take the template structure above and bring it to life in the "${config.theme}" 
 6. A themed dinner menu with cocktails
 7. An atmosphere guide (decorations, music, dress code)
 
-CRITICAL CHARACTER DESIGN RULES:
-- Every character MUST have a "specialSkill" â a unique ability, expertise, or talent tied to the theme (e.g., a lockpicker, a poison expert, a forger, a lip-reader). This skill should be relevant to the investigation and give the player something specific they can "do" that no one else can.
-- Every character MUST have 3-5 specific "tasks" â concrete actions they need to accomplish during the evening that drive the plot forward. Tasks should create natural conflicts and interactions with other characters. Examples: "Privately confront [character] about the missing ledger before Act 3", "Slip the sealed envelope to [character] when no one is looking", "Convince at least 2 guests that you were in the garden during the blackout". Tasks should feel like mini-missions that keep players actively engaged.
-- Every character's "privateSecrets" must contain AT LEAST two secrets: one that is directly connected to the murder plot, and one that is a personal secret creating dramatic tension (affair, hidden identity, secret alliance, debt, etc.). Secrets should create webs â one character's secret should implicate or protect another character.
-- Goals should be specific and potentially conflicting with at least one other character's goals.
-- Conversation prompts should be designed to organically surface clues and create suspicion.
+CRITICAL CHARACTER DESIGN RULES â "NO BORING CHARACTERS":
+Every single character must feel ESSENTIAL to the evening. No extras, no filler roles, no one watching from the sidelines. Apply ALL of the following:
+
+1. UNIQUE MECHANICAL ABILITY ("specialSkill"): Every character has a specific investigative ability that ONLY they can perform. Other players MUST seek them out to use it. This makes every character a hub of interaction.
+   Examples: "Handwriting analyst â can verify if a document was forged (other players bring you documents to examine)", "Toxicologist â can identify any poison from its description (players consult you about suspicious substances)", "Locksmith â can determine how a lock was bypassed (the host will ask you to examine the crime scene lock in Act 2)".
+   The host guide should reference these abilities so the host knows to direct players to use them.
+
+2. PERSONAL MISSIONS ("tasks"): 3-5 concrete actions that create player-to-player interaction and dramatic moments. At least one task should REQUIRE cooperation with another specific character, and at least one should put them in CONFLICT with someone.
+   Good: "Before Act 3, privately show the photograph to [character] and gauge their reaction â their response determines your next move"
+   Bad: "Investigate the crime" (too vague, doesn't create interaction)
+
+3. INTERCONNECTED SECRETS ("privateSecrets"): Minimum 2 secrets per character. One tied to the murder plot, one personal. But here's the key: secrets must LINK characters together. Character A's secret should implicate Character B. Character B's alibi depends on Character C staying quiet. This web ensures everyone is entangled.
+
+4. CONFLICTING GOALS: Every character's goals should directly oppose at least one other character's goals, creating natural dramatic tension without anyone needing to "act."
+
+5. EQUAL SCREEN TIME: Distribute clues, tasks, and dramatic moments evenly. Count them. No character should have fewer than 3 clues or tasks. The host guide should direct attention to quieter characters at specific moments.
 
 ADDITIONAL RULES:
 - Clue logic must be airtight â the solution must be definitively provable
 - The experience should last 2.5-3.5 hours
 - Character sheets should have enough material for guests to improvise naturally
-- The menu should be actually cookable by a home cook
+- The menu should be actually cookable by a home cook${config.guestProfiles?.some(g => g.dietary) ? ` â include alternatives for dietary restrictions` : ''}
 - All content must be themed to "${config.theme}"
+- The atmosphere.music field should include SPECIFIC artist names and song suggestions, not just genres
 
 Respond with valid JSON matching this exact schema (no markdown, no backticks, just JSON):
 {

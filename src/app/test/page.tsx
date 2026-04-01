@@ -1,0 +1,254 @@
+'use client'
+
+import { useState } from 'react'
+import { MysteryViewer } from '@/components/MysteryViewer'
+
+const THEMES = [
+  '1920s Speakeasy',
+  'Hollywood Golden Age',
+  'Victorian Gothic Manor',
+  'Tropical Island Resort',
+  'Space Station Odyssey',
+  'Wild West Saloon',
+  'Masquerade Ball',
+  'Haunted Mansion',
+]
+
+export default function TestPage() {
+  const [tier, setTier] = useState<'classic' | 'grand'>('classic')
+  const [theme, setTheme] = useState('1920s Speakeasy')
+  const [customTheme, setCustomTheme] = useState('')
+  const [guestCount, setGuestCount] = useState(6)
+  const [difficulty, setDifficulty] = useState<'casual' | 'intermediate' | 'devious'>('intermediate')
+  const [specialRequests, setSpecialRequests] = useState('')
+  const [mystery, setMystery] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [elapsed, setElapsed] = useState(0)
+  const [progress, setProgress] = useState('')
+
+  async function handleGenerate() {
+    setLoading(true)
+    setError('')
+    setMystery(null)
+    setElapsed(0)
+
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000)
+
+    try {
+      const res = await fetch('/api/test-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier,
+          theme: tier === 'grand' && customTheme ? customTheme : theme,
+          guestCount,
+          difficulty,
+          specialRequests,
+        }),
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        try {
+          const data = JSON.parse(text)
+          throw new Error(data.error || 'Generation failed')
+        } catch {
+          throw new Error(text || 'Generation failed')
+        }
+      }
+
+      // Read the SSE stream
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('No response stream')
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6))
+              if (event.type === 'progress') {
+                setProgress(`Writing your mystery... (${Math.round(event.length / 100)}k chars)`)
+              } else if (event.type === 'complete') {
+                setMystery(event.mystery)
+              } else if (event.type === 'error') {
+                throw new Error(event.error)
+              }
+            } catch (parseErr) {
+              // If this is a rethrown error event, propagate it
+              if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr
+              // Otherwise skip malformed SSE events
+              console.warn('Skipped malformed SSE event:', line.slice(0, 100))
+            }
+          }
+        }
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      clearInterval(interval)
+      setLoading(false)
+    }
+  }
+
+  if (mystery) {
+    return (
+      <div>
+        <div className="bg-noir-dark border-b border-gold/20 px-6 py-3 flex items-center justify-between">
+          <p className="text-gold font-display text-sm">TEST MODE — {tier.toUpperCase()} tier</p>
+          <button
+            onClick={() => setMystery(null)}
+            className="text-sm text-gray-400 hover:text-white border border-gray-600 px-3 py-1 rounded"
+          >
+            ← Generate Another
+          </button>
+        </div>
+        <MysteryViewer mystery={mystery} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-[80vh] max-w-2xl mx-auto px-6 py-12">
+      <div className="bg-yellow-900/20 border border-yellow-600/40 rounded-lg p-4 mb-8">
+        <p className="text-yellow-400 font-bold text-sm">⚠️ TEST MODE</p>
+        <p className="text-yellow-300/70 text-sm mt-1">
+          This page bypasses payment for testing. Remove before going live.
+        </p>
+      </div>
+
+      <h1 className="font-display text-3xl text-gold mb-8">Test Mystery Generator</h1>
+
+      {/* Tier */}
+      <div className="mb-6">
+        <label className="text-gray-300 text-sm font-medium mb-2 block">Tier</label>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setTier('classic')}
+            className={`flex-1 py-3 rounded-lg border-2 font-display text-lg transition ${
+              tier === 'classic'
+                ? 'border-gold bg-gold/10 text-gold'
+                : 'border-gray-700 text-gray-500 hover:border-gray-500'
+            }`}
+          >
+            Classic ($35)
+          </button>
+          <button
+            onClick={() => setTier('grand')}
+            className={`flex-1 py-3 rounded-lg border-2 font-display text-lg transition ${
+              tier === 'grand'
+                ? 'border-gold bg-gold/10 text-gold'
+                : 'border-gray-700 text-gray-500 hover:border-gray-500'
+            }`}
+          >
+            Grand ($49)
+          </button>
+        </div>
+      </div>
+
+      {/* Theme */}
+      <div className="mb-6">
+        <label className="text-gray-300 text-sm font-medium mb-2 block">Theme</label>
+        <div className="grid grid-cols-2 gap-2">
+          {THEMES.map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTheme(t); setCustomTheme(''); }}
+              className={`py-2 px-3 rounded-lg border text-sm transition ${
+                theme === t && !customTheme
+                  ? 'border-gold bg-gold/10 text-gold'
+                  : 'border-gray-700 text-gray-400 hover:border-gray-500'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        {tier === 'grand' && (
+          <textarea
+            placeholder="Or describe a custom theme (Grand tier only)..."
+            value={customTheme}
+            onChange={(e) => setCustomTheme(e.target.value)}
+            className="mt-3 w-full bg-noir-light border border-gray-700 rounded-lg p-3 text-gray-200 text-sm placeholder-gray-600 focus:border-gold focus:outline-none"
+            rows={2}
+          />
+        )}
+      </div>
+
+      {/* Guest Count */}
+      <div className="mb-6">
+        <label className="text-gray-300 text-sm font-medium mb-2 block">
+          Guests: {guestCount}
+        </label>
+        <input
+          type="range"
+          min={4}
+          max={tier === 'grand' ? 12 : 8}
+          value={guestCount}
+          onChange={(e) => setGuestCount(parseInt(e.target.value))}
+          className="w-full accent-gold"
+        />
+        <div className="flex justify-between text-xs text-gray-600 mt-1">
+          <span>4</span>
+          <span>{tier === 'grand' ? 12 : 8}</span>
+        </div>
+      </div>
+
+      {/* Difficulty */}
+      <div className="mb-6">
+        <label className="text-gray-300 text-sm font-medium mb-2 block">Difficulty</label>
+        <div className="flex gap-3">
+          {(['casual', 'intermediate', 'devious'] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDifficulty(d)}
+              className={`flex-1 py-2 rounded-lg border text-sm capitalize transition ${
+                difficulty === d
+                  ? 'border-gold bg-gold/10 text-gold'
+                  : 'border-gray-700 text-gray-500 hover:border-gray-500'
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Special Requests */}
+      <div className="mb-8">
+        <label className="text-gray-300 text-sm font-medium mb-2 block">Special Requests</label>
+        <textarea
+          placeholder="Any special requests? (e.g., 'One character should be vegetarian', 'Include a plot twist about twins')"
+          value={specialRequests}
+          onChange={(e) => setSpecialRequests(e.target.value)}
+          className="w-full bg-noir-light border border-gray-700 rounded-lg p-3 text-gray-200 text-sm placeholder-gray-600 focus:border-gold focus:outline-none"
+          rows={2}
+        />
+      </div>
+
+      {/* Generate Button */}
+      <button
+        onClick={handleGenerate}
+        disabled={loading}
+        className="w-full bg-blood hover:bg-blood-light disabled:opacity-50 text-white font-display text-xl py-4 rounded-lg transition"
+      >
+        {loading ? `Generating... (${elapsed}s)` : 'Generate Mystery'}
+      </button>
+
+      {error && (
+        <div className="mt-4 bg-red-900/20 border border-red-600/40 rounded-lg p-4">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+    </div>
+  )
+}

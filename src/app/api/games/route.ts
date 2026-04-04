@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         gameId: game.id,
+        gameCode: game.code,
         characterSlugs: game.characterSlugs,
       }),
       {

@@ -35,6 +35,13 @@ export default function HostDashboard() {
   const [isHost, setIsHost] = useState(false)
   const [selectedChar, setSelectedChar] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState('')
+  const [joinHost, setJoinHost] = useState('')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setJoinHost(window.location.host)
+    }
+  }, [])
 
   // Load game data
   useEffect(() => {
@@ -148,7 +155,7 @@ export default function HostDashboard() {
               <h2 className="font-display text-lg text-gold mb-3">Waiting for Players</h2>
               <p className="text-gray-400 text-sm mb-4">
                 Share the game code <span className="text-gold font-display">{game.code}</span> with your guests.
-                They go to <span className="text-gold">killer-party-seven.vercel.app/join</span> and enter the code.
+                They go to <span className="text-gold">{joinHost}/join</span> and enter the code.
               </p>
               <div className="space-y-2">
                 {slugEntries.map(([slug, idx]) => {

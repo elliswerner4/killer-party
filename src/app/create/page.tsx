@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { track } from '@vercel/analytics'
 
 const THEMES = [
   { id: '1920s-speakeasy', name: '1920s Speakeasy', desc: 'Jazz, bootleg gin, and a body in the back room' },
@@ -74,6 +75,14 @@ export default function CreatePage() {
     }
 
     setLoading(true)
+
+    track('checkout_started', {
+      tier,
+      guestCount,
+      difficulty,
+      themeId: theme,
+      hasGuestProfiles: guests.some((g) => g.name.trim()),
+    })
 
     // Build guest profiles for personalization
     const guestProfiles = guests

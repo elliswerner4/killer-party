@@ -1,4 +1,4 @@
-import { GeneratedMystery } from './generate'
+import { GeneratedMystery, MysteryConfig } from './generate'
 import crypto from 'crypto'
 
 /**
@@ -25,14 +25,17 @@ export interface GameState {
 }
 
 const GAME_TTL = 60 * 60 * 24 * 90 // 90 days in seconds
+const CHECKOUT_TTL = 60 * 60 * 24 * 7 // 7 days for checkout configs
 const KEY_PREFIX = 'game:'
 const STATE_PREFIX = 'state:'
 const CODE_PREFIX = 'code:'
+const CHECKOUT_PREFIX = 'checkout:'
 
 // In-memory fallback for local development
 const memoryStore = new Map<string, StoredGame>()
 const memoryStateStore = new Map<string, GameState>()
 const memoryCodeStore = new Map<string, string>() // code -> game id
+const memoryCheckoutStore = new Map<string, MysteryConfig>() // sessionId -> config
 
 function useKV(): boolean {
   return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
@@ -141,6 +144,24 @@ export async function updateGameState(gameId: string, state: GameState): Promise
     await kv.set(`${STATE_PREFIX}${gameId}`, state, { ex: GAME_TTL })
   } else {
     memoryStateStore.set(gameId, state)
+  }
+}
+
+export async function saveCheckoutConfig(sessionId: string, config: MysteryConfig): Promise<void> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    await kv.set(`${CHECKOUT_PREFIX}${sessionId}`, config, { ex: CHECKOUT_TTL })
+  } else {
+    memoryCheckoutStore.set(sessionId, config)
+  }
+}
+
+export async function getCheckoutConfig(sessionId: string): Promise<MysteryConfig | null> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    return await kv.get<MysteryConfig>(`${CHECKOUT_PREFIX}${sessionId}`)
+  } else {
+    return memoryCheckoutStore.get(sessionId) || null
   }
 }
 

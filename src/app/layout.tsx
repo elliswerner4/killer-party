@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import ServiceWorkerRegistration from '@/components/ServiceWorker'
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </nav>
         <ServiceWorkerRegistration />
+        <Analytics />
         <main>{children}</main>
         <footer className="border-t border-gray-800 mt-24 py-12 text-center text-gray-500 text-sm">
           <div className="max-w-6xl mx-auto px-6">

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { track } from '@vercel/analytics'
 import { MysteryViewer } from '@/components/MysteryViewer'
 
 function SuccessContent() {
@@ -61,7 +62,9 @@ function SuccessContent() {
                   setProgress(`Crafting your mystery... (${Math.round(event.length / 100)}k chars)`)
                 } else if (event.type === 'complete') {
                   setMystery(event.mystery)
+                  track('mystery_generated')
                 } else if (event.type === 'error') {
+                  track('mystery_generation_failed', { error: String(event.error).slice(0, 100) })
                   throw new Error(event.error)
                 }
               } catch (parseErr) {

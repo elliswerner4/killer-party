@@ -3,6 +3,9 @@ import { selectTemplate, type MysteryTemplate } from './templates'
 
 const anthropic = new Anthropic()
 
+// Override with ANTHROPIC_MODEL in Vercel if this model is ever retired
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5'
+
 export interface GuestProfile {
   name: string
   personality: string
@@ -241,7 +244,7 @@ export async function generateMystery(config: MysteryConfig): Promise<GeneratedM
   const prompt = buildPrompt(config, template)
 
   const stream = anthropic.messages.stream({
-    model: 'claude-sonnet-4-20250514',
+    model: MODEL,
     max_tokens: 12000,
     messages: [{ role: 'user', content: prompt }],
   })
@@ -261,7 +264,7 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
     async start(controller) {
       try {
         const stream = anthropic.messages.stream({
-          model: 'claude-sonnet-4-20250514',
+          model: MODEL,
           max_tokens: 12000,
           messages: [{ role: 'user', content: prompt }],
         })

@@ -5,6 +5,16 @@ const anthropic = new Anthropic()
 
 // Override with ANTHROPIC_MODEL in Vercel if this model is ever retired
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5'
+const MAX_TOKENS = 32000
+
+function getResponseText(message: Anthropic.Message): string {
+  if (message.stop_reason === 'max_tokens') {
+    throw new Error('The mystery was too long and got cut off before finishing. Please try again.')
+  }
+  return message.content
+    .map((block) => (block.type === 'text' ? block.text : ''))
+    .join('')
+}
 
 export interface GuestProfile {
   name: string
@@ -245,12 +255,12 @@ export async function generateMystery(config: MysteryConfig): Promise<GeneratedM
 
   const stream = anthropic.messages.stream({
     model: MODEL,
-    max_tokens: 12000,
+    max_tokens: MAX_TOKENS,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const finalMessage = await stream.finalMessage()
-  const text = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
+  const text = getResponseText(finalMessage)
 
   const jsonStr = extractJSON(text)
   return JSON.parse(jsonStr) as GeneratedMystery
@@ -265,7 +275,7 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
       try {
         const stream = anthropic.messages.stream({
           model: MODEL,
-          max_tokens: 12000,
+          max_tokens: MAX_TOKENS,
           messages: [{ role: 'user', content: prompt }],
         })
 
@@ -282,7 +292,7 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
         })
 
         const finalMessage = await stream.finalMessage()
-        const responseText = finalMessage.content[0].type === 'text' ? finalMessage.content[0].text : ''
+        const responseText = getResponseText(finalMessage)
 
         let jsonStr: string
         try {
@@ -293,7 +303,14 @@ export function generateMysteryStream(config: MysteryConfig): ReadableStream {
           return
         }
 
-        const mystery = JSON.parse(jsonStr)
+        let mystery: unknown
+        try {
+          mystery = JSON.parse(jsonStr)
+        } catch {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'The AI returned a malformed mystery. Please try again.' })}\n\n`))
+          controller.close()
+          return
+        }
         controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'complete', mystery })}\n\n`))
         controller.close()
       } catch (err) {

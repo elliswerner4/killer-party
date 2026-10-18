@@ -63,6 +63,7 @@ export default function TestPage() {
       if (!reader) throw new Error('No response stream')
       const decoder = new TextDecoder()
       let buffer = ''
+      let finished = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -74,23 +75,26 @@ export default function TestPage() {
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
+            let event: any
             try {
-              const event = JSON.parse(line.slice(6))
-              if (event.type === 'progress') {
-                setProgress(`Writing your mystery... (${Math.round(event.length / 100)}k chars)`)
-              } else if (event.type === 'complete') {
-                setMystery(event.mystery)
-              } else if (event.type === 'error') {
-                throw new Error(event.error)
-              }
-            } catch (parseErr) {
-              // If this is a rethrown error event, propagate it
-              if (parseErr instanceof Error && !parseErr.message.includes('JSON')) throw parseErr
-              // Otherwise skip malformed SSE events
+              event = JSON.parse(line.slice(6))
+            } catch {
               console.warn('Skipped malformed SSE event:', line.slice(0, 100))
+              continue
+            }
+            if (event.type === 'progress') {
+              setProgress(`Writing your mystery... (${Math.round(event.length / 1000)}k chars)`)
+            } else if (event.type === 'complete') {
+              finished = true
+              setMystery(event.mystery)
+            } else if (event.type === 'error') {
+              throw new Error(event.error)
             }
           }
         }
+      }
+      if (!finished) {
+        throw new Error('Generation stopped before it finished (the server likely timed out). Please try again.')
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

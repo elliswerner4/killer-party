@@ -17,6 +17,9 @@ A Next.js web app that generates unique murder mystery dinner party packages. Cu
 - **Tailwind CSS**
 - **Stripe** (payments)
 - **Anthropic Claude API** (mystery customization)
+- **Vercel KV** (game state + checkout configs)
+- **Vercel Analytics** (funnel tracking)
+- **Resend** (purchase confirmation emails)
 
 ## Setup
 
@@ -39,8 +42,10 @@ cp .env.example .env.local
 You need:
 - **Stripe Secret Key** \u2014 from https://dashboard.stripe.com/apikeys
 - **Stripe Publishable Key** \u2014 same page
-- **Stripe Webhook Secret** \u2014 from https://dashboard.stripe.com/webhooks (optional for local dev)
+- **Stripe Webhook Secret** \u2014 from https://dashboard.stripe.com/webhooks (required for confirmation emails)
 - **Anthropic API Key** \u2014 from https://console.anthropic.com
+- **Resend API Key** \u2014 from https://resend.com/api-keys (purchase confirmation emails; falls back to a no-op if unset)
+- **Resend From Email** \u2014 a verified sender address; defaults to Resend's `onboarding@resend.dev` for testing
 
 ### 3. Run locally
 
@@ -66,8 +71,12 @@ Test card: `4242 4242 4242 4242`, any future expiry, any CVC.
    - `STRIPE_PUBLISHABLE_KEY`
    - `STRIPE_WEBHOOK_SECRET`
    - `ANTHROPIC_API_KEY`
+   - `RESEND_API_KEY`
+   - `RESEND_FROM_EMAIL`
+   - `KV_REST_API_URL` / `KV_REST_API_TOKEN` (auto-set when you link a Vercel KV store)
    - `NEXT_PUBLIC_BASE_URL` (your Vercel URL, e.g., https://killerparty.vercel.app)
-4. Deploy
+4. Enable Vercel Analytics in the project's Analytics tab (no extra config required — the app already includes `<Analytics />`)
+5. Deploy
 
 ## Architecture
 

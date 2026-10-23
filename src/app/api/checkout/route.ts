@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, PRICES } from '@/lib/stripe'
+import { saveCheckoutConfig } from '@/lib/storage'
+import type { MysteryConfig, GuestProfile } from '@/lib/generate'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,22 +18,21 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
-    // Stripe metadata values must be strings under 500 chars.
-    // Guest profiles can be large, so we compress to just names + notes.
-    let guestProfilesMeta = ''
-    if (guestProfiles && Array.isArray(guestProfiles) && guestProfiles.length > 0) {
-      const compact = guestProfiles.map((g: { name: string; personality: string; dietary: string }) => {
-        const parts = [g.name]
-        if (g.personality) parts.push(`(${g.personality})`)
-        if (g.dietary) parts.push(`[${g.dietary}]`)
-        return parts.join(' ')
-      })
-      guestProfilesMeta = compact.join('; ').slice(0, 490)
-    }
+    const cleanProfiles: GuestProfile[] | undefined =
+      Array.isArray(guestProfiles) && guestProfiles.length > 0
+        ? guestProfiles.map((g: GuestProfile) => ({
+            name: String(g.name || '').slice(0, 50),
+            personality: String(g.personality || '').slice(0, 200),
+            dietary: String(g.dietary || '').slice(0, 100),
+          }))
+        : undefined
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
+      // Stripe Checkout collects email by default for guest checkouts; this makes it explicit
+      // so we can send post-purchase confirmation emails via the webhook.
+      customer_creation: 'always',
       line_items: [
         {
           price_data: {
@@ -46,16 +47,27 @@ export async function POST(req: NextRequest) {
         },
       ],
       metadata: {
+        // Kept for Stripe dashboard visibility; full config lives in KV under the session id.
         tier,
-        theme,
+        theme: theme.slice(0, 490),
         guestCount: String(guestCount),
         difficulty,
-        specialRequests: (specialRequests || '').slice(0, 490),
-        guestProfiles: guestProfilesMeta,
+        guestProfileCount: String(cleanProfiles?.length ?? 0),
       },
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/create`,
     })
+
+    const config: MysteryConfig = {
+      tier,
+      theme,
+      guestCount,
+      difficulty,
+      specialRequests: specialRequests || '',
+      guestProfiles: cleanProfiles,
+    }
+
+    await saveCheckoutConfig(session.id, config)
 
     return NextResponse.json({ url: session.url })
   } catch (err: unknown) {

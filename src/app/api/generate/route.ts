@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { generateMysteryStream, type MysteryConfig } from '@/lib/generate'
+import { getCheckoutConfig } from '@/lib/storage'
 
 export const maxDuration = 300
 
@@ -25,13 +26,15 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Extract mystery config from Stripe metadata
-    const config: MysteryConfig = {
+    // Full config is stored in KV at checkout time (Stripe metadata is capped at 500 chars per
+    // value, which truncates guest profiles). Fall back to metadata for older sessions.
+    const stored = await getCheckoutConfig(sessionId)
+    const config: MysteryConfig = stored || {
       tier: session.metadata?.tier as 'classic' | 'grand',
       theme: session.metadata?.theme || '',
       guestCount: parseInt(session.metadata?.guestCount || '6'),
       difficulty: session.metadata?.difficulty as 'casual' | 'intermediate' | 'devious',
-      specialRequests: session.metadata?.specialRequests || '',
+      specialRequests: '',
     }
 
     const stream = generateMysteryStream(config)

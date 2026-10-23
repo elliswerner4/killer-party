@@ -2,7 +2,7 @@ import { GeneratedMystery, MysteryConfig } from './generate'
 import crypto from 'crypto'
 
 /**
- * Game storage â Vercel KV in production, in-memory fallback for local dev.
+ * Game storage — Vercel KV in production, in-memory fallback for local dev.
  *
  * Games are stored with a 90-day TTL so storage doesn't grow unbounded.
  * Game state (current act, votes) is stored separately for the companion app.

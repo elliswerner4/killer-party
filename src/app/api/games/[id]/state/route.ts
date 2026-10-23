@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getGame, getGameState, updateGameState } from '@/lib/storage'
 
-// GET â poll current game state
+// GET — poll current game state
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -20,7 +20,7 @@ export async function GET(
   })
 }
 
-// POST â host advances game state
+// POST — host advances game state
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

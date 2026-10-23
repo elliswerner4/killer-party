@@ -107,7 +107,7 @@ function SuccessContent() {
         <p className="text-blood-light font-display text-2xl mb-4">Something Went Wrong</p>
         <p className="text-gray-400 mb-6 max-w-md">{error}</p>
         <p className="text-gray-500 text-sm">
-          Don&apos;t worry â your payment is safe. Please email{' '}
+          Don&apos;t worry — your payment is safe. Please email{' '}
           <a href="mailto:support@killerparty.co" className="text-gold underline">
             support@killerparty.co
           </a>{' '}

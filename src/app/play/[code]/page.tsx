@@ -163,7 +163,7 @@ export default function HostDashboard() {
                   const claimed = state?.players[slug]
                   return (
                     <div key={slug} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                      <span className="text-white text-sm">{char.name} <span className="text-gray-500">â {char.role}</span></span>
+                      <span className="text-white text-sm">{char.name} <span className="text-gray-500">— {char.role}</span></span>
                       {claimed ? (
                         <span className="text-green-400 text-xs">{claimed}</span>
                       ) : (
@@ -272,7 +272,7 @@ export default function HostDashboard() {
     )
   }
 
-  // ====== GUEST VIEW â CHARACTER SELECT ======
+  // ====== GUEST VIEW — CHARACTER SELECT ======
   const mySlug = typeof window !== 'undefined' ? sessionStorage.getItem(`kp-${gameId}`) : null
 
   if (mySlug) {

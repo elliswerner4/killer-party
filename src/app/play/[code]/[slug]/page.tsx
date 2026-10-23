@@ -61,7 +61,7 @@ export default function CharacterView() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/games/${gameId}`)
+        const res = await fetch(`/api/games/${gameId}?guest=${encodeURIComponent(slug)}`)
         if (!res.ok) throw new Error('Game not found')
         const data = await res.json()
         setGame(data)
@@ -72,7 +72,7 @@ export default function CharacterView() {
       }
     }
     load()
-  }, [gameId])
+  }, [gameId, slug])
 
   // Poll game state
   const pollState = useCallback(async () => {

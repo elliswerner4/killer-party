@@ -4,28 +4,29 @@
 
 **Live site:** [killer-party-seven.vercel.app](https://killer-party-seven.vercel.app)
 
-Killer Party is a full-stack web app I designed and built on my own. A host picks a theme, guest count and difficulty, pays through Stripe, and gets a complete, playable party package in minutes. The package includes a host guide, character sheets, clues, a reveal script, a menu and an atmosphere guide. Guests join on their phones with a game code and see only their own character.
+Killer Party is a full-stack web app I designed and built on my own, with AI coding tools. A host picks a theme, guest count and difficulty, checks out through Stripe, and gets a complete party package in minutes. The package includes a host guide, character sheets, clues, a reveal script, a menu and an atmosphere guide. Guests join on their phones with a game code and get their own character page with their private clues.
 
 ## What it shows
 
 - **A working product, end to end.** Landing page, checkout, payment webhook, AI generation, delivery, confirmation email and a guest companion app.
-- **Reliable AI output.** The AI adapts hand-built plot templates whose clue logic is fixed, so every mystery can be solved while still feeling custom. The model streams its output, the app detects truncated responses, and errors appear on screen instead of failing silently.
-- **Unit economics designed in.** Generation costs about $0.05 to $0.15 per mystery, which is roughly a 96% gross margin on a $35 sale.
+- **Constrained AI output.** Four hand-written plot templates fix the solution and the clue chain, and the model writes the customization around them. Output streams to the browser, truncated responses are caught by checking the stop reason, and errors appear on screen instead of failing silently.
+- **Money is spent only after payment.** The server confirms with Stripe that a checkout session is paid before it calls the model, so unpaid requests can't run up API costs.
 
 ## How it works
 
 1. The host customizes a mystery (theme, guests, difficulty, special requests).
 2. They pay through Stripe Checkout ($35 Classic / $49 Grand).
-3. A Stripe webhook confirms payment and stores the order in Vercel KV.
-4. The app streams a custom mystery from the Claude API, built on a pre-made plot template.
-5. The host gets the full package, a shareable game code and a confirmation email.
-6. Guests open the game link, pick their character and get private clues on their phones.
+3. Checkout saves the full order to Vercel KV, which gets around Stripe's 500-character metadata limit.
+4. Once the server confirms with Stripe that the session is paid, it streams a custom mystery from the Claude API, built on one of the plot templates.
+5. A signature-verified Stripe webhook sends the confirmation email.
+6. The host gets the full package and a shareable game code.
+7. Guests open the game link, pick their character and get private clues on their phones.
 
 ## Tech stack
 
 | Layer | Tools |
 |---|---|
-| App | Next.js 14 (App Router), TypeScript, Tailwind CSS, installable on phones as a web app |
+| App | Next.js 14 (App Router), TypeScript, Tailwind CSS, web app manifest for phone home screens |
 | AI | Anthropic Claude API, streamed over server-sent events; model set by `ANTHROPIC_MODEL` |
 | Payments | Stripe Checkout and webhooks |
 | Data | Vercel KV (Upstash Redis) for orders, game state and sharing links |
@@ -36,16 +37,15 @@ Killer Party is a full-stack web app I designed and built on my own. A host pick
 
 Fully AI-written mysteries often end up unsolvable. Fully templated ones feel generic. Killer Party splits the work:
 
-- **Templates hold the logic.** Plot skeletons with tested clue chains guarantee the puzzle works.
+- **Templates hold the logic.** Each template fixes who did it and how the clues point there.
 - **AI handles everything else.** Theme, characters, dialogue, menu and atmosphere are rewritten for each order, using real guest names if the host provides them.
-- **Cost stays low.** The AI only writes the customization layer, so each package costs cents to make.
+- **Cost stays bounded.** The AI only writes the customization layer, and output is capped at 32,000 tokens.
 
 ## Costs per sale
 
 - Vercel: free tier covers about 100K requests a month
 - Stripe: 2.9% + $0.30 per transaction
-- Claude API: about $0.05 to $0.15 per mystery
-- Total: about $1.50 on a $35 sale
+- Claude API: one generation per order, capped at 32,000 output tokens
 
 ## Run it locally
 

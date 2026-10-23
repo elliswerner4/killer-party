@@ -4,6 +4,14 @@ import { generateMysteryStream, type MysteryConfig } from '@/lib/generate'
 export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
+  // Unpaid generation spends API credits, so it is off unless explicitly enabled.
+  if (process.env.ENABLE_TEST_GENERATE !== 'true') {
+    return new Response(JSON.stringify({ error: 'Not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   const { tier, theme, guestCount, difficulty, specialRequests } = await req.json()
 
   const config: MysteryConfig = {

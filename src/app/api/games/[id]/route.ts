@@ -40,6 +40,48 @@ export async function GET(
     )
   }
 
+  // Guest view: the player's own character in full, other players' public
+  // details only, the player's own clues, and no solution or host guide.
+  const guestSlug = req.nextUrl.searchParams.get('guest')
+
+  if (guestSlug) {
+    const me = getCharacterBySlug(game, guestSlug)
+    if (!me) {
+      return new Response(JSON.stringify({ error: 'Character not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const myName = me.character.name.toLowerCase()
+    return new Response(
+      JSON.stringify({
+        id: game.id,
+        characterSlugs: game.characterSlugs,
+        mystery: {
+          title: game.mystery.title,
+          characters: game.mystery.characters.map((c, i) =>
+            i === me.index
+              ? c
+              : {
+                  name: c.name,
+                  role: c.role,
+                  publicBio: c.publicBio,
+                  specialSkill: '',
+                  privateSecrets: '',
+                  goals: '',
+                  tasks: [],
+                  relationships: '',
+                  conversationPrompts: [],
+                }
+          ),
+          clues: game.mystery.clues.filter((c) => c.givenTo.toLowerCase().includes(myName)),
+          reveal: { accusationPrompt: game.mystery.reveal.accusationPrompt },
+        },
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   // Return full game info (for host)
   return new Response(
     JSON.stringify({

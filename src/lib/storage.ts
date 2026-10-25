@@ -14,6 +14,7 @@ export interface StoredGame {
   mystery: GeneratedMystery
   createdAt: string
   characterSlugs: Record<string, number> // slug -> character index
+  hostKey?: string // secret in the host's dashboard link; games saved before this existed have none
 }
 
 export interface GameState {
@@ -79,6 +80,7 @@ export async function saveGame(mystery: GeneratedMystery): Promise<StoredGame> {
   const game: StoredGame = {
     id,
     code,
+    hostKey: crypto.randomBytes(12).toString('hex'),
     mystery,
     createdAt: new Date().toISOString(),
     characterSlugs,
@@ -174,4 +176,67 @@ export function getCharacterBySlug(
   const character = game.mystery.characters[index]
   if (!character) return undefined
   return { character, index }
+}
+
+// ---------------------------------------------------------------------------
+// Paid mysteries, keyed by Stripe checkout session.
+// A customer who refreshes the success page or comes back from their
+// confirmation email gets the mystery they paid for, not a new one.
+// ---------------------------------------------------------------------------
+
+const PURCHASE_PREFIX = 'purchase:'
+const LOCK_PREFIX = 'generating:'
+const LOCK_TTL = 6 * 60 // seconds; longer than one generation run
+
+const memoryPurchaseStore = new Map<string, GeneratedMystery>()
+const memoryLocks = new Map<string, number>() // sessionId -> expiry (ms)
+
+export async function savePurchasedMystery(sessionId: string, mystery: GeneratedMystery): Promise<void> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    await kv.set(`${PURCHASE_PREFIX}${sessionId}`, mystery, { ex: GAME_TTL })
+    await kv.del(`${LOCK_PREFIX}${sessionId}`)
+  } else {
+    memoryPurchaseStore.set(sessionId, mystery)
+    memoryLocks.delete(sessionId)
+  }
+}
+
+export async function getPurchasedMystery(sessionId: string): Promise<GeneratedMystery | null> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    return await kv.get<GeneratedMystery>(`${PURCHASE_PREFIX}${sessionId}`)
+  }
+  return memoryPurchaseStore.get(sessionId) || null
+}
+
+/** Returns true if this caller now owns generation for the session. */
+export async function claimGeneration(sessionId: string): Promise<boolean> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    const result = await kv.set(`${LOCK_PREFIX}${sessionId}`, Date.now(), { nx: true, ex: LOCK_TTL })
+    return result === 'OK'
+  }
+  const expiry = memoryLocks.get(sessionId)
+  if (expiry && expiry > Date.now()) return false
+  memoryLocks.set(sessionId, Date.now() + LOCK_TTL * 1000)
+  return true
+}
+
+export async function releaseGeneration(sessionId: string): Promise<void> {
+  if (useKV()) {
+    const { kv } = await import('@vercel/kv')
+    await kv.del(`${LOCK_PREFIX}${sessionId}`)
+  } else {
+    memoryLocks.delete(sessionId)
+  }
+}
+
+/** True if the caller holds the host key (games saved before host keys accept "1"). */
+export function isHostKey(game: StoredGame, key: string | null | undefined): boolean {
+  if (!key) return false
+  if (!game.hostKey) return key === '1'
+  const a = Buffer.from(key)
+  const b = Buffer.from(game.hostKey)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }

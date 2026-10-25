@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getGame, getGameState, updateGameState } from '@/lib/storage'
+import { getGame, getGameState, updateGameState, isHostKey } from '@/lib/storage'
 
 // GET — poll current game state
 export async function GET(
@@ -42,7 +42,16 @@ export async function POST(
   }
 
   const body = await req.json()
-  const { action, playerSlug, playerName, characterSlug } = body
+  const { action, playerSlug, playerName, characterSlug, hostKey } = body
+
+  // Only the host can move the game along.
+  const hostActions = ['start', 'nextAct', 'accusations', 'reveal', 'finish']
+  if (hostActions.includes(action) && !isHostKey(game, hostKey)) {
+    return new Response(JSON.stringify({ error: 'Only the host can do that' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   switch (action) {
     case 'join': {

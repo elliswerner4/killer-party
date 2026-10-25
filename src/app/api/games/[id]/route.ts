@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getGame, getCharacterBySlug } from '@/lib/storage'
+import { getGame, getCharacterBySlug, isHostKey } from '@/lib/storage'
 
 export async function GET(
   req: NextRequest,
@@ -82,13 +82,32 @@ export async function GET(
     )
   }
 
-  // Return full game info (for host)
+  // Host view: the full mystery, only with the host key from the dashboard link.
+  if (isHostKey(game, req.nextUrl.searchParams.get('host'))) {
+    return new Response(
+      JSON.stringify({
+        id: game.id,
+        code: game.code,
+        isHost: true,
+        mystery: game.mystery,
+        characterSlugs: game.characterSlugs,
+        createdAt: game.createdAt,
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // Lobby view for guests picking a character: public details only.
   return new Response(
     JSON.stringify({
       id: game.id,
-      mystery: game.mystery,
+      isHost: false,
       characterSlugs: game.characterSlugs,
-      createdAt: game.createdAt,
+      mystery: {
+        title: game.mystery.title,
+        tagline: game.mystery.tagline,
+        characters: game.mystery.characters.map((c) => ({ name: c.name, role: c.role, publicBio: c.publicBio })),
+      },
     }),
     { headers: { 'Content-Type': 'application/json' } }
   )

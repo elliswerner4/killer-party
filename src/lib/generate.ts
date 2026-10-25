@@ -1,20 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { selectTemplate, type MysteryTemplate } from './templates'
 
-const anthropic = new Anthropic()
+// Generous timeout: individual steps stream for up to ~2 minutes.
+const anthropic = new Anthropic({ timeout: 4 * 60 * 1000, maxRetries: 2 })
 
 // Override with ANTHROPIC_MODEL in Vercel if this model is ever retired
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5'
-const MAX_TOKENS = 32000
-
-function getResponseText(message: Anthropic.Message): string {
-  if (message.stop_reason === 'max_tokens') {
-    throw new Error('The mystery was too long and got cut off before finishing. Please try again.')
-  }
-  return message.content
-    .map((block) => (block.type === 'text' ? block.text : ''))
-    .join('')
-}
 
 export interface GuestProfile {
   name: string
@@ -87,140 +78,268 @@ export interface GeneratedMystery {
   }
 }
 
-function buildPrompt(config: MysteryConfig, template: MysteryTemplate): string {
-  const difficultyGuide = {
-    casual: 'Keep clues straightforward and obvious. Limit red herrings to 1. Make the solution reachable by casual players who are there for fun, not brain-teasers.',
-    intermediate: 'Include 2-3 red herrings and require connecting at least 2 clues to solve. The solution should be satisfying but not frustratingly hard.',
-    devious: 'Use all red herrings, add extra misleading evidence, require connecting 3+ clues to solve. Include at least one clue that only makes sense in retrospect. Challenge experienced players.',
+// ---------------------------------------------------------------------------
+// Generation pipeline
+//
+// A full mystery is 10-20k tokens of output. Writing it in one call takes
+// 3-6 minutes, which runs past the serverless time limit for larger parties.
+// Instead we write a short outline first (the solution, the cast, the plot
+// beats), then expand every section from that outline in parallel. Wall time
+// is roughly one outline call plus the slowest expansion call.
+// ---------------------------------------------------------------------------
+
+const CHARACTERS_PER_BATCH = 3
+
+const DIFFICULTY_GUIDE = {
+  casual:
+    'Keep clues straightforward. Limit red herrings to 1. The solution should be reachable by casual players who are there for fun, not brain-teasers.',
+  intermediate:
+    'Include 2-3 red herrings and require connecting at least 2 clues to solve. The solution should be satisfying but not frustratingly hard.',
+  devious:
+    'Use all red herrings, add extra misleading evidence, and require connecting 3+ clues to solve. Include at least one clue that only makes sense in retrospect.',
+}
+
+interface OutlineCharacter {
+  name: string
+  role: string
+  specialSkill: string
+  publicBio: string
+  secretSummary: string
+  plotFunction: string
+}
+
+interface MysteryOutline {
+  title: string
+  tagline: string
+  setting: string
+  victim: string
+  solution: {
+    killer: string
+    motive: string
+    method: string
+    weapon: string
+    keyEvidence: string
   }
+  secondaryCrime: string
+  redHerrings: string[]
+  actBeats: { act1: string; act2: string; act3: string; act4: string }
+  characters: OutlineCharacter[]
+}
 
-  return `You are a professional mystery writer creating a complete murder mystery dinner party package.
+type ProgressFn = (event: { type: 'progress'; length: number } | { type: 'stage'; message: string }) => void
 
-## TEMPLATE STRUCTURE (use this exact plot skeleton — do NOT deviate from the logical structure)
+const JSON_ONLY = 'Respond with valid JSON only: no markdown, no code fences, no commentary before or after.'
+
+function guestSection(config: MysteryConfig): string {
+  if (!config.guestProfiles || config.guestProfiles.length === 0) return ''
+  return `
+## REAL GUESTS
+The host listed their real guests. Use these exact names as character names and fit each character to the guest's personality.
+${config.guestProfiles
+  .map(
+    (g, i) =>
+      `Guest ${i + 1}: "${g.name}"${g.personality ? ` (personality: ${g.personality})` : ''}${g.dietary ? ` (dietary: ${g.dietary})` : ''}`
+  )
+  .join('\n')}
+- A shy guest gets a bold, dramatic character to draw them out.
+- A guest who loves drama sits at the center of the intrigue.
+- A competitive guest gets the most complex investigation angle.
+- If fewer names are given than the guest count, invent names for the rest.
+`
+}
+
+function basics(config: MysteryConfig): string {
+  return `- Theme/setting: ${config.theme}
+- Number of guests (= number of playable characters): ${config.guestCount}
+- Difficulty: ${config.difficulty}. ${DIFFICULTY_GUIDE[config.difficulty]}
+- Tier: ${config.tier}${config.specialRequests ? `\n- Special requests from the host: ${config.specialRequests}` : ''}`
+}
+
+function outlinePrompt(config: MysteryConfig, template: MysteryTemplate): string {
+  return `You are a professional murder mystery writer planning a dinner party game. Write the OUTLINE only: later writers will expand each part from it, so it must be precise and internally consistent.
+
+## PLOT SKELETON (keep this logical structure)
 ${JSON.stringify(template.structure, null, 2)}
 
-## CLUE LOGIC (follow this framework exactly)
+## CLUE LOGIC
 ${JSON.stringify(template.clueLogic, null, 2)}
 
-## CHARACTER ARCHETYPES (adapt these to the theme)
+## ARCHETYPES (adapt to the theme; combine or split to match the guest count)
 ${template.characterArchetypes.join(', ')}
 
-## CUSTOMIZATION PARAMETERS
-- Theme/Setting: ${config.theme}
-- Number of guests: ${config.guestCount}
-- Difficulty: ${config.difficulty} — ${difficultyGuide[config.difficulty]}
-- Tier: ${config.tier}
-${config.specialRequests ? `- Special requests: ${config.specialRequests}` : ''}
-${config.guestProfiles && config.guestProfiles.length > 0 ? `
-## GUEST PERSONALIZATION
-The host has provided information about their real guests. Use their REAL NAMES as character names and design characters that match each guest's personality. This is critical — it makes the experience personal and memorable.
+## PARAMETERS
+${basics(config)}
+${guestSection(config)}
+## RULES
+- Exactly ${config.guestCount} playable characters. The victim is NOT a playable character; they die before or during Act 1.
+- Exactly one playable character is the killer. The solution must be provable from the evidence.
+- Every character has a unique investigative skill that others must seek out, and a secret that links them to at least one other character.
+- Everything is themed to "${config.theme}".
 
-${config.guestProfiles.map((g, i) => `Guest ${i + 1}: "${g.name}"${g.personality ? ` — Personality: ${g.personality}` : ''}${g.dietary ? ` — Dietary: ${g.dietary}` : ''}`).join('\n')}
-
-PERSONALIZATION RULES:
-- Use these exact real names as the character names
-- If a guest is described as "shy", give them a bold/dramatic character to help them break out of their shell
-- If a guest "loves drama", give them a character at the center of the intrigue with lots of confrontation tasks
-- If a guest is "competitive", give them the most complex investigation angle
-- Adapt the menu to accommodate any dietary restrictions listed (provide alternative dishes where needed)
-- If fewer names are provided than the guest count, create original names for the remaining characters
-` : ''}
-
-## YOUR TASK
-Take the template structure above and bring it to life in the "${config.theme}" setting. Create:
-
-1. A compelling title and tagline
-2. A detailed host guide with scene-by-scene instructions and timing
-3. ${config.guestCount} unique character sheets (adapt the archetypes to fit the theme and guest count — combine or split archetypes as needed)
-4. Clue cards that follow the clue logic framework
-5. A complete accusation and reveal sequence
-6. A themed dinner menu with cocktails
-7. An atmosphere guide (decorations, music, dress code)
-
-CRITICAL CHARACTER DESIGN RULES — "NO BORING CHARACTERS":
-Every single character must feel ESSENTIAL to the evening. No extras, no filler roles, no one watching from the sidelines. Apply ALL of the following:
-
-1. UNIQUE MECHANICAL ABILITY ("specialSkill"): Every character has a specific investigative ability that ONLY they can perform. Other players MUST seek them out to use it. This makes every character a hub of interaction.
-   Examples: "Handwriting analyst — can verify if a document was forged (other players bring you documents to examine)", "Toxicologist — can identify any poison from its description (players consult you about suspicious substances)", "Locksmith — can determine how a lock was bypassed (the host will ask you to examine the crime scene lock in Act 2)".
-   The host guide should reference these abilities so the host knows to direct players to use them.
-
-2. PERSONAL MISSIONS ("tasks"): 3-5 concrete actions that create player-to-player interaction and dramatic moments. At least one task should REQUIRE cooperation with another specific character, and at least one should put them in CONFLICT with someone.
-   Good: "Before Act 3, privately show the photograph to [character] and gauge their reaction — their response determines your next move"
-   Bad: "Investigate the crime" (too vague, doesn't create interaction)
-
-3. INTERCONNECTED SECRETS ("privateSecrets"): Minimum 2 secrets per character. One tied to the murder plot, one personal. But here's the key: secrets must LINK characters together. Character A's secret should implicate Character B. Character B's alibi depends on Character C staying quiet. This web ensures everyone is entangled.
-
-4. CONFLICTING GOALS: Every character's goals should directly oppose at least one other character's goals, creating natural dramatic tension without anyone needing to "act."
-
-5. EQUAL SCREEN TIME: Distribute clues, tasks, and dramatic moments evenly. Count them. No character should have fewer than 3 clues or tasks. The host guide should direct attention to quieter characters at specific moments.
-
-ADDITIONAL RULES:
-- Clue logic must be airtight — the solution must be definitively provable
-- The experience should last 2.5-3.5 hours
-- Character sheets should have enough material for guests to improvise naturally
-- The menu should be actually cookable by a home cook${config.guestProfiles?.some(g => g.dietary) ? ` — include alternatives for dietary restrictions` : ''}
-- All content must be themed to "${config.theme}"
-- The atmosphere.music field should include SPECIFIC artist names and song suggestions, not just genres
-
-Respond with valid JSON matching this exact schema (no markdown, no backticks, just JSON):
+${JSON_ONLY}
 {
   "title": "string",
-  "tagline": "string",
-  "theme": "string",
-  "guestCount": number,
-  "difficulty": "string",
-  "hostGuide": {
-    "overview": "string (2-3 paragraph overview of the evening)",
-    "timeline": "string (minute-by-minute schedule)",
-    "act1": "string (detailed host instructions for act 1)",
-    "act2": "string (detailed host instructions for act 2)",
-    "act3": "string (detailed host instructions for act 3)",
-    "act4": "string (detailed host instructions for act 4)",
-    "tips": "string (hosting tips and contingencies)"
+  "tagline": "string (one evocative line)",
+  "setting": "string (2-3 sentences: where and when the party takes place)",
+  "victim": "string (name and who they were, 1-2 sentences)",
+  "solution": {
+    "killer": "string (exact name of one playable character)",
+    "motive": "string",
+    "method": "string",
+    "weapon": "string",
+    "keyEvidence": "string (the clue that proves it)"
   },
+  "secondaryCrime": "string (the smaller crime and which characters are involved)",
+  "redHerrings": ["string"],
+  "actBeats": { "act1": "string", "act2": "string", "act3": "string", "act4": "string" },
   "characters": [
     {
       "name": "string",
-      "role": "string (their public role in the setting)",
-      "specialSkill": "string (a unique ability or expertise that only this character has — relevant to investigation, e.g., 'Expert forger — can analyze handwriting and detect fakes' or 'Former locksmith — can determine how any lock was picked')",
-      "publicBio": "string (what everyone knows about them — 2-3 sentences)",
-      "privateSecrets": "string (at least 2 secrets: one tied to the murder plot, one personal — both creating dramatic tension)",
-      "goals": "string (specific objectives for the evening that conflict with at least one other character's goals)",
-      "tasks": ["string (3-5 specific actions the player must accomplish during the game, e.g., 'Privately confront X about the missing documents before Act 3', 'Plant the red envelope in Y's coat pocket without being seen')"],
-      "relationships": "string (how they relate to every other character — include at least one hidden connection)",
-      "conversationPrompts": ["string (5 things they might say to spark interaction and organically surface clues)"]
+      "role": "string (public role in the setting)",
+      "specialSkill": "string (unique investigative ability others must seek out)",
+      "publicBio": "string (what everyone knows, 2-3 sentences)",
+      "secretSummary": "string (their secrets in brief, naming the characters they link to)",
+      "plotFunction": "string (killer / red herring / secondary crime / alibi witness / etc.)"
     }
-  ],
+  ]
+}`
+}
+
+function outlineContext(config: MysteryConfig, outline: MysteryOutline): string {
+  return `## THE MYSTERY OUTLINE (canonical; do not contradict it)
+${JSON.stringify(outline, null, 2)}
+
+## PARAMETERS
+${basics(config)}`
+}
+
+function hostGuidePrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  return `You are a professional murder mystery writer. Write the HOST GUIDE for this dinner party game.
+
+${outlineContext(config, outline)}
+
+## RULES
+- The evening lasts 2.5 to 3.5 hours across four acts.
+- Give the host concrete, scene-by-scene instructions: what to say, when to hand out clues, and when to steer attention to quieter characters.
+- Reference the characters' special skills so the host knows when to direct players to use them.
+- The host does not play a character and knows the solution.
+
+${JSON_ONLY}
+{
+  "overview": "string (2-3 paragraphs on the evening)",
+  "timeline": "string (minute-by-minute schedule)",
+  "act1": "string (detailed host instructions)",
+  "act2": "string",
+  "act3": "string",
+  "act4": "string",
+  "tips": "string (hosting tips and contingencies)"
+}`
+}
+
+function cluesPrompt(config: MysteryConfig, outline: MysteryOutline, template: MysteryTemplate): string {
+  return `You are a professional murder mystery writer. Write the CLUE CARDS for this dinner party game.
+
+${outlineContext(config, outline)}
+
+## CLUE LOGIC
+${JSON.stringify(template.clueLogic, null, 2)}
+
+## RULES
+- The clues must make the solution definitively provable, with the key evidence revealed no earlier than act3.
+- Include the red herrings from the outline.
+- Spread clues so every character receives at least 2. Use exact character names in "givenTo", or "all" for clues read to everyone.
+- About ${Math.max(10, config.guestCount * 2 + 4)} clues in total.
+
+${JSON_ONLY}
+{
   "clues": [
     {
-      "id": "string (clue-1, clue-2, etc.)",
+      "id": "clue-1",
       "title": "string",
-      "content": "string (the actual clue text players read)",
-      "revealedIn": "string (act1, act2, act3, or act4)",
+      "content": "string (the clue text players read)",
+      "revealedIn": "act1 | act2 | act3 | act4",
       "givenTo": "string (character name or 'all')"
     }
-  ],
-  "reveal": {
-    "buildup": "string (the host reads this to build tension before accusations)",
-    "accusationPrompt": "string (what the host says to prompt guests to accuse)",
-    "revealScript": "string (the full dramatic reveal — who did it, how, and why)",
-    "epilogue": "string (what happened to each character after — a satisfying ending)"
-  },
+  ]
+}`
+}
+
+function revealPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  return `You are a professional murder mystery writer. Write the ACCUSATION AND REVEAL scripts the host reads aloud at the end of this dinner party game.
+
+${outlineContext(config, outline)}
+
+${JSON_ONLY}
+{
+  "buildup": "string (read aloud to build tension before accusations)",
+  "accusationPrompt": "string (what the host says to prompt guests to accuse)",
+  "revealScript": "string (the full dramatic reveal: who did it, how, and why, walking through the evidence)",
+  "epilogue": "string (what became of each character afterwards)"
+}`
+}
+
+function extrasPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  const dietary = config.guestProfiles?.filter((g) => g.dietary).map((g) => `${g.name}: ${g.dietary}`)
+  return `You are planning the food and atmosphere for a murder mystery dinner party.
+
+- Title: ${outline.title}
+- Setting: ${outline.setting}
+- Theme: ${config.theme}
+- Guests: ${config.guestCount}${dietary && dietary.length ? `\n- Dietary needs (include alternatives): ${dietary.join('; ')}` : ''}
+
+## RULES
+- The menu must be cookable by a home cook.
+- Music must name specific artists and songs, not just genres.
+
+${JSON_ONLY}
+{
   "menu": {
     "theme": "string (the culinary direction)",
-    "appetizers": ["string (dish name — brief description)"],
+    "appetizers": ["string (dish name: brief description)"],
     "mains": ["string"],
     "desserts": ["string"],
-    "cocktails": ["string (cocktail name — ingredients — brief instructions)"],
+    "cocktails": ["string (name: ingredients: brief method)"],
     "nonAlcoholic": ["string"]
   },
   "atmosphere": {
-    "decorations": "string (specific, actionable decoration ideas)",
-    "music": "string (genre, artists, or playlist suggestions)",
-    "dressCode": "string (what guests should wear)",
-    "lighting": "string (lighting recommendations)",
-    "tableSettings": "string (table and place setting ideas)"
+    "decorations": "string",
+    "music": "string",
+    "dressCode": "string",
+    "lighting": "string",
+    "tableSettings": "string"
   }
+}`
+}
+
+function charactersPrompt(config: MysteryConfig, outline: MysteryOutline, names: string[]): string {
+  return `You are a professional murder mystery writer. Write the full CHARACTER SHEETS for these characters only: ${names.map((n) => `"${n}"`).join(', ')}.
+
+${outlineContext(config, outline)}
+${guestSection(config)}
+## RULES ("no boring characters")
+- Keep each character's name, role, specialSkill and publicBio consistent with the outline.
+- privateSecrets: at least 2 secrets, one tied to the murder plot and one personal, and they must implicate or link to other named characters.
+- goals: must directly conflict with at least one other character's goals.
+- tasks: 3-5 concrete actions. At least one requires cooperating with a specific named character and at least one puts them in conflict with someone. Avoid vague tasks like "investigate the crime".
+- relationships: how they relate to every other character, including at least one hidden connection.
+- conversationPrompts: exactly 5 lines they might say to spark interaction and surface clues.
+- The killer's sheet must not state outright that they are the killer, but must give them what they need to play the role convincingly.
+
+${JSON_ONLY}
+{
+  "characters": [
+    {
+      "name": "string",
+      "role": "string",
+      "specialSkill": "string",
+      "publicBio": "string",
+      "privateSecrets": "string",
+      "goals": "string",
+      "tasks": ["string"],
+      "relationships": "string",
+      "conversationPrompts": ["string"]
+    }
+  ]
 }`
 }
 
@@ -238,7 +357,7 @@ function extractJSON(text: string): string {
     const ch = text[i]
     if (escape) { escape = false; continue }
     if (ch === '\\' && inString) { escape = true; continue }
-    if (ch === '"' && !escape) { inString = !inString; continue }
+    if (ch === '"') { inString = !inString; continue }
     if (inString) continue
     if (ch === '{') depth++
     else if (ch === '}') {
@@ -249,75 +368,200 @@ function extractJSON(text: string): string {
   throw new Error('No complete JSON object found in response')
 }
 
-export async function generateMystery(config: MysteryConfig): Promise<GeneratedMystery> {
-  const template = selectTemplate(config.guestCount)
-  const prompt = buildPrompt(config, template)
-
-  const stream = anthropic.messages.stream({
-    model: MODEL,
-    max_tokens: MAX_TOKENS,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const finalMessage = await stream.finalMessage()
-  const text = getResponseText(finalMessage)
-
-  const jsonStr = extractJSON(text)
-  return JSON.parse(jsonStr) as GeneratedMystery
+/**
+ * Run one generation call and parse its JSON. Retries once on a cut-off or
+ * unparseable response; the SDK already retries rate limits and overloads.
+ */
+async function callJSON<T>(
+  label: string,
+  prompt: string,
+  maxTokens: number,
+  onText: (delta: number) => void
+): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const stream = anthropic.messages.stream({
+        model: MODEL,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      })
+      stream.on('text', (t) => onText(t.length))
+      const message = await stream.finalMessage()
+      if (message.stop_reason === 'max_tokens') {
+        throw new Error(`${label} was cut off at ${maxTokens} tokens`)
+      }
+      const text = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('')
+      return JSON.parse(extractJSON(text)) as T
+    } catch (err) {
+      lastError = err
+      // Model or auth problems will not fix themselves on retry.
+      const status = (err as { status?: number })?.status
+      if (status === 400 || status === 401 || status === 403 || status === 404) break
+      console.error(`Generation step "${label}" failed (attempt ${attempt}):`, err)
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : String(lastError)
+  throw new Error(`Could not write the ${label}. ${detail}`)
 }
 
-export function generateMysteryStream(config: MysteryConfig): ReadableStream {
+export async function generateMystery(config: MysteryConfig, onProgress: ProgressFn = () => {}): Promise<GeneratedMystery> {
   const template = selectTemplate(config.guestCount)
-  const prompt = buildPrompt(config, template)
 
+  let total = 0
+  let lastSent = 0
+  const onText = (n: number) => {
+    total += n
+    if (total - lastSent >= 400) {
+      lastSent = total
+      onProgress({ type: 'progress', length: total })
+    }
+  }
+
+  onProgress({ type: 'stage', message: 'Plotting the murder' })
+  const outline = await callJSON<MysteryOutline>('outline', outlinePrompt(config, template), 8000, onText)
+
+  if (!Array.isArray(outline.characters) || outline.characters.length === 0) {
+    throw new Error('Could not write the outline. It had no characters.')
+  }
+
+  onProgress({ type: 'stage', message: 'Writing characters, clues and the reveal' })
+
+  const names = outline.characters.map((c) => c.name)
+  const batches: string[][] = []
+  for (let i = 0; i < names.length; i += CHARACTERS_PER_BATCH) {
+    batches.push(names.slice(i, i + CHARACTERS_PER_BATCH))
+  }
+
+  const [hostGuide, clueResult, reveal, extras, ...characterBatches] = await Promise.all([
+    callJSON<GeneratedMystery['hostGuide']>('host guide', hostGuidePrompt(config, outline), 8000, onText),
+    callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline, template), 8000, onText),
+    callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline), 6000, onText),
+    callJSON<Pick<GeneratedMystery, 'menu' | 'atmosphere'>>('menu', extrasPrompt(config, outline), 4000, onText),
+    ...batches.map((batch, i) =>
+      callJSON<{ characters: GeneratedMystery['characters'] }>(
+        `character sheets (${i + 1}/${batches.length})`,
+        charactersPrompt(config, outline, batch),
+        8000,
+        onText
+      )
+    ),
+  ])
+
+  // Keep the outline's cast order; fall back to the outline entry if a sheet is missing.
+  const written = new Map<string, GeneratedMystery['characters'][0]>()
+  for (const batch of characterBatches) {
+    for (const c of batch.characters || []) written.set(c.name.trim().toLowerCase(), c)
+  }
+  const characters = outline.characters.map((o) => {
+    const c = written.get(o.name.trim().toLowerCase())
+    return {
+      name: o.name,
+      role: c?.role || o.role,
+      specialSkill: c?.specialSkill || o.specialSkill,
+      publicBio: c?.publicBio || o.publicBio,
+      privateSecrets: c?.privateSecrets || o.secretSummary,
+      goals: c?.goals || '',
+      tasks: Array.isArray(c?.tasks) ? c!.tasks : [],
+      relationships: c?.relationships || '',
+      conversationPrompts: Array.isArray(c?.conversationPrompts) ? c!.conversationPrompts : [],
+    }
+  })
+
+  onProgress({ type: 'progress', length: total })
+
+  return {
+    title: outline.title,
+    tagline: outline.tagline,
+    theme: config.theme,
+    guestCount: characters.length,
+    difficulty: config.difficulty,
+    hostGuide,
+    characters,
+    clues: Array.isArray(clueResult.clues) ? clueResult.clues : [],
+    reveal,
+    menu: extras.menu,
+    atmosphere: extras.atmosphere,
+  }
+}
+
+/**
+ * Server-sent events stream for the browser. Emits `stage` and `progress`
+ * events while writing, then a single `complete` or `error` event.
+ * A comment line every 10s keeps proxies from closing an idle connection.
+ */
+export function generateMysteryStream(
+  config: MysteryConfig,
+  hooks: {
+    onComplete?: (mystery: GeneratedMystery) => Promise<void>
+    onError?: () => Promise<void>
+  } = {}
+): ReadableStream {
+  const encoder = new TextEncoder()
   return new ReadableStream({
     async start(controller) {
+      const send = (data: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+      const keepAlive = setInterval(() => controller.enqueue(encoder.encode(': keep-alive\n\n')), 10000)
       try {
-        const stream = anthropic.messages.stream({
-          model: MODEL,
-          max_tokens: MAX_TOKENS,
-          messages: [{ role: 'user', content: prompt }],
-        })
-
-        let fullText = ''
-        let lastProgressSent = 0
-
-        stream.on('text', (text) => {
-          fullText += text
-          // Only send progress every 500 chars to avoid flooding
-          if (fullText.length - lastProgressSent >= 500) {
-            lastProgressSent = fullText.length
-            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', length: fullText.length })}\n\n`))
+        const mystery = await generateMystery(config, send)
+        if (hooks.onComplete) {
+          try {
+            await hooks.onComplete(mystery)
+          } catch (err) {
+            console.error('Saving the generated mystery failed:', err)
           }
-        })
-
-        const finalMessage = await stream.finalMessage()
-        const responseText = getResponseText(finalMessage)
-
-        let jsonStr: string
-        try {
-          jsonStr = extractJSON(responseText)
-        } catch {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'Invalid response format — could not extract JSON from AI response' })}\n\n`))
-          controller.close()
-          return
         }
-
-        let mystery: unknown
-        try {
-          mystery = JSON.parse(jsonStr)
-        } catch {
-          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: 'The AI returned a malformed mystery. Please try again.' })}\n\n`))
-          controller.close()
-          return
-        }
-        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'complete', mystery })}\n\n`))
-        controller.close()
+        send({ type: 'complete', mystery })
       } catch (err) {
+        console.error('Generation failed:', err)
+        await hooks.onError?.().catch(() => {})
         const message = err instanceof Error ? err.message : 'Generation failed'
-        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', error: message })}\n\n`))
+        send({ type: 'error', error: message })
+      } finally {
+        clearInterval(keepAlive)
         controller.close()
       }
+    },
+  })
+}
+
+/** SSE stream that sends an already-written mystery straight away. */
+export function completedMysteryStream(mystery: GeneratedMystery): ReadableStream {
+  const encoder = new TextEncoder()
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'complete', mystery })}\n\n`))
+      controller.close()
+    },
+  })
+}
+
+/**
+ * SSE stream for a second tab or a refresh while another request is still
+ * writing the same purchase: waits for that result instead of paying twice.
+ */
+export function waitForMysteryStream(
+  lookup: () => Promise<GeneratedMystery | null>,
+  timeoutMs = 280_000
+): ReadableStream {
+  const encoder = new TextEncoder()
+  return new ReadableStream({
+    async start(controller) {
+      const send = (data: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+      send({ type: 'stage', message: 'Your mystery is already being written' })
+      const deadline = Date.now() + timeoutMs
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 4000))
+        const mystery = await lookup().catch(() => null)
+        if (mystery) {
+          send({ type: 'complete', mystery })
+          controller.close()
+          return
+        }
+        controller.enqueue(encoder.encode(': keep-alive\n\n'))
+      }
+      send({ type: 'error', error: 'Your mystery is taking longer than expected. Please refresh this page in a minute.' })
+      controller.close()
     },
   })
 }

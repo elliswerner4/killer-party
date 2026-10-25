@@ -1,7 +1,24 @@
 import { NextRequest } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { generateMysteryStream, type MysteryConfig } from '@/lib/generate'
-import { getCheckoutConfig } from '@/lib/storage'
+import {
+  generateMysteryStream,
+  completedMysteryStream,
+  waitForMysteryStream,
+  type MysteryConfig,
+} from '@/lib/generate'
+import {
+  getCheckoutConfig,
+  getPurchasedMystery,
+  savePurchasedMystery,
+  claimGeneration,
+  releaseGeneration,
+} from '@/lib/storage'
+
+const SSE_HEADERS = {
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache, no-transform',
+  Connection: 'keep-alive',
+}
 
 export const maxDuration = 300
 
@@ -26,6 +43,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Already written for this purchase: return it instead of paying for a new one.
+    const existing = await getPurchasedMystery(sessionId)
+    if (existing) {
+      return new Response(completedMysteryStream(existing), { headers: SSE_HEADERS })
+    }
+
+    // Another request (a refresh, a second tab) is already writing it: wait for that one.
+    if (!(await claimGeneration(sessionId))) {
+      return new Response(waitForMysteryStream(() => getPurchasedMystery(sessionId)), { headers: SSE_HEADERS })
+    }
+
     // Full config is stored in KV at checkout time (Stripe metadata is capped at 500 chars per
     // value, which truncates guest profiles). Fall back to metadata for older sessions.
     const stored = await getCheckoutConfig(sessionId)
@@ -37,15 +65,12 @@ export async function POST(req: NextRequest) {
       specialRequests: '',
     }
 
-    const stream = generateMysteryStream(config)
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
+    const stream = generateMysteryStream(config, {
+      onComplete: (mystery) => savePurchasedMystery(sessionId, mystery),
+      onError: () => releaseGeneration(sessionId),
     })
+
+    return new Response(stream, { headers: SSE_HEADERS })
   } catch (err: unknown) {
     console.error('Generation error:', err)
     const message = err instanceof Error ? err.message : 'Failed to generate mystery'

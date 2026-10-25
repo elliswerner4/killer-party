@@ -1,301 +1,175 @@
+import { JoinCodeCard } from '@/components/JoinCodeCard'
+
+const STEPS = [
+  {
+    title: 'Set the table',
+    body: 'Pick a setting, the number of guests and how hard the puzzle should be. Add your friends’ names and a word about each of them if you want characters written for them.',
+  },
+  {
+    title: 'Get your mystery',
+    body: 'In a couple of minutes you have the whole evening: a character for every guest, clues spread over four acts, a host script, the reveal, and a menu to match.',
+  },
+  {
+    title: 'Host the night',
+    body: 'Guests join on their phones with your game code and see only their own character. You run the acts from a host dashboard and read the reveal when the votes are in.',
+  },
+]
+
+const CONTENTS = [
+  ['Character sheets', 'A public bio, two secrets, goals that clash with someone else’s, and tasks for the evening. Nobody gets a walk-on part.'],
+  ['Clue cards', 'Evidence that comes out act by act, with red herrings matched to the difficulty you chose.'],
+  ['Host script', 'What to say and when, act by act, with timings for a two-and-a-half to three-and-a-half hour evening.'],
+  ['The reveal', 'A read-aloud accusation scene and a reveal that walks through the evidence, plus an epilogue for every character.'],
+  ['Menu and drinks', 'Dishes and cocktails a home cook can make, in keeping with the setting.'],
+  ['Atmosphere', 'Music with named artists and songs, dress code, lighting and table ideas.'],
+]
+
 export default function Home() {
   return (
     <div>
-      {/* Hero */}
-      <section className="relative py-32 md:py-40 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-blood-dark/10 via-transparent to-transparent pointer-events-none" />
-        <div className="max-w-3xl mx-auto relative">
-          <p className="text-gold/80 tracking-[0.25em] uppercase text-xs mb-6">
-            AI-generated murder mysteries
-          </p>
-          <h1 className="font-display text-5xl md:text-7xl text-white leading-[1.1] mb-8">
-            Your dinner party,<br />
-            <span className="text-blood-light">their last night.</span>
-          </h1>
-          <p className="text-lg text-gray-400 max-w-xl mx-auto mb-12 leading-relaxed">
-            Every mystery is unique. Every character has a secret.
-            Generate a complete dinner party experience in minutes.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="/create" className="btn-primary text-base py-4 px-10">
-              Create Your Mystery
-            </a>
-            <a href="#how-it-works" className="btn-secondary text-base py-4 px-10">
-              How It Works
-            </a>
+      {/* Hero: hosts on the left, invited guests on the place card */}
+      <section className="px-4 sm:px-6 pt-14 pb-20 md:pt-24 md:pb-28">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-[1.25fr_1fr] gap-12 md:gap-16 items-center">
+          <div>
+            <h1 className="font-display text-[2.75rem] leading-[1.05] sm:text-6xl lg:text-7xl text-parchment max-w-[14ch]">
+              A murder at your dinner table.
+            </h1>
+            <p className="mt-6 text-lg leading-relaxed text-gray-300 max-w-[46ch]">
+              Killer Party writes a one-off murder mystery for your friends: a character for every guest, the clues,
+              a script for the host and the final reveal. You bring dinner.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+              <a href="/create" className="btn-primary text-base px-7 py-3.5">
+                Create a mystery
+              </a>
+              <a href="#how-it-works" className="text-parchment underline decoration-parchment/30 underline-offset-4 hover:decoration-parchment">
+                How it works
+              </a>
+            </div>
+            <p className="mt-4 text-sm text-gray-500">From $35 for up to 8 guests. Paid once, yours to keep.</p>
           </div>
-        </div>
-      </section>
 
-      {/* Stats bar */}
-      <section className="py-10 border-y border-gray-800/60">
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="flex justify-between text-center">
-            <div>
-              <span className="block text-2xl font-display text-gold">2,400+</span>
-              <span className="text-xs text-gray-500 tracking-wide">Mysteries</span>
-            </div>
-            <div>
-              <span className="block text-2xl font-display text-gold">4.9/5</span>
-              <span className="text-xs text-gray-500 tracking-wide">Rating</span>
-            </div>
-            <div>
-              <span className="block text-2xl font-display text-gold">18,000+</span>
-              <span className="text-xs text-gray-500 tracking-wide">Guests</span>
+          <div className="flex md:justify-end">
+            <div className="w-full max-w-sm md:rotate-[1.5deg]">
+              <JoinCodeCard />
             </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how-it-works" className="py-24 px-6">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-gold/70 tracking-[0.2em] uppercase text-xs text-center mb-4">How it works</p>
-          <h2 className="font-display text-3xl md:text-4xl text-center text-white mb-20">
-            Three steps to a killer night
-          </h2>
-          <div className="space-y-20">
-            {[
-              {
-                step: '01',
-                title: 'Design your mystery',
-                desc: 'Pick a theme, set the guest count, choose difficulty. Personalize characters with your friends\u2019 names and personalities for a mystery that feels made for your group.',
-              },
-              {
-                step: '02',
-                title: 'We generate everything',
-                desc: 'Our AI builds a complete, interconnected murder mystery: unique characters with secrets and motives, layered clues that unfold across four acts, a dramatic reveal, a themed menu, and atmosphere guide.',
-              },
-              {
-                step: '03',
-                title: 'Host an unforgettable night',
-                desc: 'Use the companion app to run the game in real-time. Each guest gets their own character view on their phone with private secrets, clues, and tasks. You control the pacing from the host dashboard.',
-              },
-            ].map((item) => (
-              <div key={item.step} className="flex gap-8 md:gap-12 items-start">
-                <span className="font-display text-6xl md:text-7xl text-blood/20 leading-none shrink-0 w-20 text-right">
-                  {item.step}
-                </span>
-                <div>
-                  <h3 className="font-display text-xl md:text-2xl text-white mb-3">{item.title}</h3>
-                  <p className="text-gray-400 leading-relaxed max-w-lg">{item.desc}</p>
-                </div>
+      {/* How it works: a real sequence, so numbered */}
+      <section id="how-it-works" className="px-4 sm:px-6 py-20 border-t border-parchment/10 scroll-mt-16">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl text-parchment max-w-[20ch]">How an evening comes together</h2>
+          <ol className="mt-12 grid md:grid-cols-3 gap-10 md:gap-12">
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="border-t border-gold/40 pt-5">
+                <p className="font-display text-gold text-xl">{i + 1}.</p>
+                <h3 className="mt-2 font-display text-2xl text-parchment">{step.title}</h3>
+                <p className="mt-3 text-gray-300 leading-relaxed">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* What's in the package */}
+      <section className="px-4 sm:px-6 py-20 border-t border-parchment/10">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-[1fr_2fr] gap-10 md:gap-16">
+          <div>
+            <h2 className="font-display text-4xl md:text-5xl text-parchment">What you get</h2>
+            <p className="mt-4 text-gray-400 leading-relaxed max-w-[36ch]">
+              Everything is written for your setting and guest count, and you can print the whole package or run it from your phone.
+            </p>
+          </div>
+          <dl className="grid sm:grid-cols-2 gap-x-10 gap-y-8">
+            {CONTENTS.map(([term, desc]) => (
+              <div key={term}>
+                <dt className="font-display text-xl text-parchment">{term}</dt>
+                <dd className="mt-1.5 text-gray-400 leading-relaxed">{desc}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </div>
       </section>
 
-      {/* Companion App Feature */}
-      <section className="py-24 px-6 border-y border-gray-800/40">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div>
-              <p className="text-gold/70 tracking-[0.2em] uppercase text-xs mb-4">Companion app</p>
-              <h2 className="font-display text-3xl text-white mb-6">
-                Run the game from your phone
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-8">
-                The host dashboard lets you advance acts, reveal clues at the perfect moment, trigger the accusation phase, and deliver the dramatic reveal. No printed scripts to fumble with.
-              </p>
-              <div className="space-y-4">
-                {[
-                  'Control game pacing act by act',
-                  'Push clues to specific players in real-time',
-                  'Track which guests have voted',
-                  'One-tap dramatic reveal',
-                ].map((feature) => (
-                  <div key={feature} className="flex items-center gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
-                    <span className="text-gray-300 text-sm">{feature}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="relative">
-              <div className="bg-gradient-to-br from-noir-light to-noir rounded-2xl border border-gray-800 p-8 space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-gold font-display text-sm">Host Dashboard</span>
-                  <span className="text-xs text-gray-500">Act 2 of 4</span>
-                </div>
-                <div className="bg-noir/60 rounded-lg p-3 border border-gray-800">
-                  <span className="text-xs text-gray-500">Current Phase</span>
-                  <p className="text-white text-sm font-medium">Investigation</p>
-                </div>
-                <div className="bg-noir/60 rounded-lg p-3 border border-gray-800">
-                  <span className="text-xs text-gray-500">Players Online</span>
-                  <p className="text-gold text-sm font-medium">6 of 6</p>
-                </div>
-                <div className="bg-blood/20 border border-blood/30 rounded-lg p-3 text-center">
-                  <span className="text-blood-light text-sm font-medium">Advance to Act 3</span>
-                </div>
-              </div>
-            </div>
+      {/* On the night */}
+      <section className="px-4 sm:px-6 py-20 border-t border-parchment/10">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 md:gap-16 items-center">
+          <div>
+            <h2 className="font-display text-4xl md:text-5xl text-parchment">On the night, everyone plays from their phone</h2>
+            <ul className="mt-8 space-y-4 text-gray-300 leading-relaxed">
+              <li><span className="text-parchment font-semibold">Guests</span> open this site, tap Join a game, enter your code and pick their character. They see their own secrets and clues, and nobody else’s.</li>
+              <li><span className="text-parchment font-semibold">You</span> keep the host dashboard open: it shows who has joined, what to read in each act and which clues to hand to whom.</li>
+              <li><span className="text-parchment font-semibold">At the end</span> everyone votes on their phone, then you reveal the killer.</li>
+            </ul>
           </div>
-        </div>
-      </section>
 
-      {/* Character Roles Feature */}
-      <section className="py-24 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div className="order-2 md:order-1">
-              <div className="space-y-3">
-                {[
-                  { name: 'Victoria Sterling', role: 'The Heiress', secret: 'Secretly bankrupt and desperate' },
-                  { name: 'Marcus Blackwood', role: 'The Business Partner', secret: 'Discovered the fraud last week' },
-                  { name: 'Dr. Evelyn Cross', role: 'The Family Doctor', secret: 'Hiding a forged prescription' },
-                ].map((char) => (
-                  <div key={char.name} className="bg-noir-light/60 border border-gray-800 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
-                        <span className="text-gold font-display text-sm">{char.name[0]}</span>
-                      </div>
-                      <div>
-                        <p className="text-white text-sm font-medium">{char.name}</p>
-                        <p className="text-gold/70 text-xs">{char.role}</p>
-                      </div>
-                    </div>
-                    <p className="text-gray-500 text-xs pl-11">{char.secret}</p>
-                  </div>
-                ))}
-              </div>
+          {/* A quiet rendering of the host dashboard */}
+          <figure className="card max-w-md md:ml-auto w-full" aria-label="Example host dashboard">
+            <div className="flex items-baseline justify-between">
+              <p className="font-display text-xl text-parchment">Death at the Gilded Lily</p>
+              <p className="text-sm text-gray-500">Act 2 of 4</p>
             </div>
-            <div className="order-1 md:order-2">
-              <p className="text-gold/70 tracking-[0.2em] uppercase text-xs mb-4">Every guest matters</p>
-              <h2 className="font-display text-3xl text-white mb-6">
-                Characters with depth, not costumes
-              </h2>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Each character comes with a private backstory, hidden motives, specific tasks to complete during the evening, and conversation prompts that naturally create tension and alliances.
-              </p>
-              <p className="text-gray-400 leading-relaxed">
-                Guests see only their own secrets on their phone. Everyone has something to hide, something to find out, and someone they don&apos;t trust.
-              </p>
+            <p className="mt-1 text-sm text-gray-500">Game code <span className="text-gold font-semibold tracking-wider">RAVEN-318</span></p>
+            <div className="mt-5 border-t border-parchment/10 pt-4">
+              <p className="text-sm font-semibold text-parchment">Clues to hand out</p>
+              <ul className="mt-2 space-y-2 text-sm">
+                <li className="flex justify-between gap-4"><span className="text-gray-300">A torn bar tab</span><span className="text-gray-500">to Ada Fairweather</span></li>
+                <li className="flex justify-between gap-4"><span className="text-gray-300">Lipstick on the glass</span><span className="text-gray-500">to everyone</span></li>
+              </ul>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* What's included */}
-      <section className="py-24 px-6 border-y border-gray-800/40">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-gold/70 tracking-[0.2em] uppercase text-xs text-center mb-4">What you get</p>
-          <h2 className="font-display text-3xl md:text-4xl text-center text-white mb-16">
-            A complete experience, not a kit
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
-            {[
-              { title: 'Host Guide', desc: 'Scene-by-scene instructions with timing cues and tips for building suspense.' },
-              { title: 'Character Sheets', desc: 'Private backstories, secrets, motivations, and conversation prompts for every guest.' },
-              { title: 'Clue Cards', desc: 'Evidence that unfolds across four acts, keeping the mystery alive all evening.' },
-              { title: 'Companion App', desc: 'Real-time game management for hosts. Character views on every guest\u2019s phone.' },
-              { title: 'Themed Menu', desc: 'Recipes and cocktail pairings matched to your setting and era.' },
-              { title: 'Atmosphere Guide', desc: 'Music, decor, and dress code suggestions to set the perfect mood.' },
-            ].map((item) => (
-              <div key={item.title}>
-                <h3 className="font-display text-lg text-white mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
+            <div className="mt-5 border-t border-parchment/10 pt-4 flex items-center justify-between text-sm">
+              <span className="text-gray-400">6 of 6 guests joined</span>
+              <span className="rounded-md bg-blood px-3 py-1.5 font-semibold text-parchment">Start act 3</span>
+            </div>
+          </figure>
         </div>
       </section>
 
       {/* Pricing */}
-      <section className="py-24 px-6">
-        <div className="max-w-3xl mx-auto">
-          <p className="text-gold/70 tracking-[0.2em] uppercase text-xs text-center mb-4">Pricing</p>
-          <h2 className="font-display text-3xl md:text-4xl text-center text-white mb-16">
-            One purchase, one unforgettable night
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="border border-gray-800 rounded-2xl p-8">
-              <h3 className="font-display text-xl text-white mb-1">Classic</h3>
-              <p className="text-3xl font-display text-gold mb-1">$35</p>
-              <p className="text-gray-600 text-xs mb-8">one-time</p>
-              <div className="space-y-3 mb-8">
-                {['4\u20138 guests', 'Curated themes', 'Full character sheets & clues', 'Host guide & reveal', 'Menu & atmosphere guide'].map((f) => (
-                  <div key={f} className="flex items-center gap-3">
-                    <span className="text-gold text-xs">&#10003;</span>
-                    <span className="text-gray-400 text-sm">{f}</span>
-                  </div>
-                ))}
-              </div>
-              <a href="/create?tier=classic" className="block text-center border border-gray-700 text-gray-300 hover:border-gold hover:text-gold py-3 rounded-lg text-sm font-medium transition-colors">
-                Choose Classic
-              </a>
+      <section id="pricing" className="px-4 sm:px-6 py-20 border-t border-parchment/10">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="font-display text-4xl md:text-5xl text-parchment">Pricing</h2>
+          <p className="mt-4 text-gray-400">One payment per mystery. No subscription.</p>
+          <div className="mt-10 grid md:grid-cols-2 gap-6 max-w-4xl">
+            <div className="rounded-lg border border-parchment/15 p-7 flex flex-col">
+              <h3 className="font-display text-3xl text-parchment">Classic</h3>
+              <p className="mt-1"><span className="font-display text-4xl text-parchment">$35</span></p>
+              <ul className="mt-6 space-y-2 text-gray-300 flex-1">
+                <li>4 to 8 guests</li>
+                <li>Choose from eight settings</li>
+                <li>Every part of the package</li>
+              </ul>
+              <a href="/create?tier=classic" className="btn-secondary mt-8">Create a Classic mystery</a>
             </div>
-            <div className="border border-gold/40 rounded-2xl p-8 relative">
-              <div className="absolute -top-3 left-6 bg-gold text-noir-dark text-[10px] font-bold px-3 py-0.5 rounded-full tracking-wide">
-                POPULAR
-              </div>
-              <h3 className="font-display text-xl text-white mb-1">Grand</h3>
-              <p className="text-3xl font-display text-gold mb-1">$49</p>
-              <p className="text-gray-600 text-xs mb-8">one-time</p>
-              <div className="space-y-3 mb-8">
-                {['Up to 12 guests', 'Any theme \u2014 fully custom', 'Extra clue complexity', 'Everything in Classic', 'Printable name badges & props'].map((f) => (
-                  <div key={f} className="flex items-center gap-3">
-                    <span className="text-gold text-xs">&#10003;</span>
-                    <span className="text-gray-400 text-sm">{f}</span>
-                  </div>
-                ))}
-              </div>
-              <a href="/create?tier=grand" className="btn-primary block text-center py-3 text-sm">
-                Choose Grand
-              </a>
+            <div className="rounded-lg border border-gold/50 bg-noir-light p-7 flex flex-col">
+              <h3 className="font-display text-3xl text-parchment">Grand</h3>
+              <p className="mt-1"><span className="font-display text-4xl text-parchment">$49</span></p>
+              <ul className="mt-6 space-y-2 text-gray-300 flex-1">
+                <li>Up to 12 guests</li>
+                <li>Any setting you can describe</li>
+                <li>Every part of the package</li>
+              </ul>
+              <a href="/create?tier=grand" className="btn-primary mt-8">Create a Grand mystery</a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-24 px-6 border-t border-gray-800/40">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-gold/70 tracking-[0.2em] uppercase text-xs text-center mb-4">From hosts</p>
-          <h2 className="font-display text-3xl text-center text-white mb-16">
-            People can&apos;t stop talking about it
-          </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: 'My friends are still talking about it three weeks later. Everyone stayed in character the whole night.',
-                name: 'Sarah M.',
-                detail: '1920s Speakeasy, 8 guests',
-              },
-              {
-                quote: 'The clues actually made sense and the reveal was genuinely surprising. Way better than boxed mystery games.',
-                name: 'James K.',
-                detail: 'Victorian Manor, 6 guests',
-              },
-              {
-                quote: 'The companion app made hosting so easy. I just tapped buttons and everyone had an amazing time.',
-                name: 'Taylor R.',
-                detail: 'Hollywood Noir, 10 guests',
-              },
-            ].map((t) => (
-              <div key={t.name} className="border border-gray-800/60 rounded-xl p-6">
-                <p className="text-gray-300 text-sm leading-relaxed mb-6">&ldquo;{t.quote}&rdquo;</p>
-                <p className="text-white text-sm font-medium">{t.name}</p>
-                <p className="text-gray-600 text-xs">{t.detail}</p>
-              </div>
-            ))}
+      {/* Close: both audiences again */}
+      <section className="px-4 sm:px-6 py-20 border-t border-parchment/10">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-10">
+          <div>
+            <h2 className="font-display text-4xl text-parchment">Hosting?</h2>
+            <p className="mt-3 text-gray-300 max-w-[40ch]">Set up your mystery now and it’s ready to send to your guests in a few minutes.</p>
+            <a href="/create" className="btn-primary mt-6">Create a mystery</a>
           </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="py-32 px-6 text-center">
-        <div className="max-w-xl mx-auto">
-          <h2 className="font-display text-4xl md:text-5xl text-white mb-6 leading-tight">
-            Ready to host a<br /><span className="text-blood-light">killer</span> night?
-          </h2>
-          <p className="text-gray-500 mb-10">
-            Your guests will never see it coming.
-          </p>
-          <a href="/create" className="btn-primary text-base py-4 px-12">
-            Create Your Mystery
-          </a>
+          <div>
+            <h2 className="font-display text-4xl text-parchment">Got a code?</h2>
+            <p className="mt-3 text-gray-300 max-w-[40ch]">Your host sent you a game code like KNIFE-742. Enter it to pick your character.</p>
+            <a href="/join" className="btn-secondary mt-6">Join a game</a>
+          </div>
         </div>
       </section>
     </div>

@@ -33,6 +33,7 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [isHost, setIsHost] = useState(false)
+  const [hostKey, setHostKey] = useState('')
   const [selectedChar, setSelectedChar] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState('')
   const [joinHost, setJoinHost] = useState('')
@@ -47,14 +48,15 @@ export default function HostDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`/api/games/${gameId}`)
+        // The host's dashboard link carries a secret key; without it the
+        // server sends only the public lobby, never the solution.
+        const key = new URLSearchParams(window.location.search).get('host')
+        const res = await fetch(`/api/games/${gameId}${key ? `?host=${encodeURIComponent(key)}` : ''}`)
         if (!res.ok) throw new Error('Game not found')
         const data = await res.json()
         setGame(data)
-
-        // Check if user is host (stored in localStorage-like state via URL)
-        const isHostParam = new URLSearchParams(window.location.search).get('host')
-        setIsHost(isHostParam === '1')
+        setIsHost(data.isHost === true)
+        if (data.isHost) setHostKey(key || '')
       } catch {
         setError('Game not found.')
       } finally {
@@ -86,7 +88,7 @@ export default function HostDashboard() {
       const res = await fetch(`/api/games/${gameId}/state`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...extra }),
+        body: JSON.stringify({ action, hostKey, ...extra }),
       })
       if (res.ok) setState(await res.json())
     } catch { /* ignore */ }
@@ -108,7 +110,7 @@ export default function HostDashboard() {
   if (error || !game) {
     return (
       <div className="min-h-[80vh] flex flex-col items-center justify-center px-6 text-center">
-        <p className="text-blood-light font-display text-2xl mb-4">Game Not Found</p>
+        <p className="text-blood-light font-display text-2xl mb-4">Game not found</p>
         <a href="/join" className="text-gold underline">Try another code</a>
       </div>
     )
@@ -133,10 +135,10 @@ export default function HostDashboard() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <p className="text-gold text-xs tracking-widest uppercase mb-1">Host Dashboard</p>
+          <p className="text-gold text-xs mb-1">Host dashboard</p>
           <h1 className="font-display text-3xl text-white">{game.mystery.title}</h1>
           <p className="text-gray-400 text-sm mt-2">
-            Game Code: <span className="text-gold font-display text-lg tracking-wider">{game.code}</span>
+            Game code <span className="text-gold font-display text-lg tracking-wider">{game.code}</span>
           </p>
         </div>
 
@@ -144,7 +146,7 @@ export default function HostDashboard() {
         <div className="card p-4 mb-6 text-center">
           <p className="text-gray-400 text-sm">
             <span className="text-gold font-display text-xl">{state ? Object.keys(state.players).length : 0}</span>
-            {' / '}{game.mystery.characters.length} players joined
+            {' / '}{game.mystery.characters.length} guests joined
           </p>
         </div>
 
@@ -152,7 +154,7 @@ export default function HostDashboard() {
         {state?.phase === 'lobby' && (
           <div className="space-y-4">
             <div className="card p-4">
-              <h2 className="font-display text-lg text-gold mb-3">Waiting for Players</h2>
+              <h2 className="font-display text-lg text-gold mb-3">Waiting for guests</h2>
               <p className="text-gray-400 text-sm mb-4">
                 Share the game code <span className="text-gold font-display">{game.code}</span> with your guests.
                 They go to <span className="text-gold">{joinHost}/join</span> and enter the code.
@@ -165,9 +167,9 @@ export default function HostDashboard() {
                     <div key={slug} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
                       <span className="text-white text-sm">{char.name} <span className="text-gray-500">— {char.role}</span></span>
                       {claimed ? (
-                        <span className="text-green-400 text-xs">{claimed}</span>
+                        <span className="text-sage text-xs">{claimed}</span>
                       ) : (
-                        <span className="text-gray-600 text-xs">waiting...</span>
+                        <span className="text-gray-600 text-xs">not joined yet</span>
                       )}
                     </div>
                   )
@@ -178,7 +180,7 @@ export default function HostDashboard() {
               onClick={() => sendAction('start')}
               className="btn-primary w-full py-4 text-lg"
             >
-              Start the Mystery
+              Start the mystery
             </button>
           </div>
         )}
@@ -197,7 +199,7 @@ export default function HostDashboard() {
 
             {currentClues.length > 0 && (
               <div className="card p-5">
-                <h3 className="font-display text-lg text-gold mb-3">Clues to Distribute</h3>
+                <h3 className="font-display text-lg text-gold mb-3">Clues to hand out</h3>
                 {currentClues.map((clue) => (
                   <div key={clue.id} className="mb-3 pb-3 border-b border-gray-800 last:border-0 last:mb-0 last:pb-0">
                     <p className="text-white text-sm font-medium">{clue.title}</p>
@@ -214,7 +216,7 @@ export default function HostDashboard() {
                 </button>
               ) : (
                 <button onClick={() => sendAction('accusations')} className="btn-primary flex-1 py-3">
-                  Begin Accusations
+                  Begin accusations
                 </button>
               )}
             </div>
@@ -224,7 +226,7 @@ export default function HostDashboard() {
         {state?.phase === 'accusations' && (
           <div className="space-y-4">
             <div className="card p-5">
-              <h2 className="font-display text-xl text-gold mb-3">Accusation Time</h2>
+              <h2 className="font-display text-xl text-gold mb-3">Accusation time</h2>
               <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap mb-4">
                 {game.mystery.reveal.accusationPrompt}
               </p>
@@ -234,7 +236,7 @@ export default function HostDashboard() {
               </p>
             </div>
             <button onClick={() => sendAction('reveal')} className="btn-primary w-full py-4 text-lg">
-              Reveal the Killer
+              Reveal the killer
             </button>
           </div>
         )}
@@ -257,15 +259,15 @@ export default function HostDashboard() {
               </p>
             </div>
             <button onClick={() => sendAction('finish')} className="btn-secondary w-full py-3">
-              End Game
+              End game
             </button>
           </div>
         )}
 
         {state?.phase === 'finished' && (
           <div className="card p-5 text-center">
-            <h2 className="font-display text-2xl text-gold mb-2">Case Closed</h2>
-            <p className="text-gray-400">Thanks for hosting a Killer Party!</p>
+            <h2 className="font-display text-2xl text-gold mb-2">Case closed</h2>
+            <p className="text-gray-400">Thanks for hosting.</p>
           </div>
         )}
       </div>
@@ -291,7 +293,7 @@ export default function HostDashboard() {
       </div>
 
       <div className="mb-6">
-        <label className="label text-sm">Your Name</label>
+        <label className="label text-sm">Your name</label>
         <input
           type="text"
           value={playerName}
@@ -302,7 +304,7 @@ export default function HostDashboard() {
         />
       </div>
 
-      <label className="label text-sm mb-3">Choose Your Character</label>
+      <label className="label text-sm mb-3">Choose your character</label>
       <div className="space-y-3">
         {slugEntries.map(([slug, idx]) => {
           const char = game.mystery.characters[idx]
@@ -325,7 +327,7 @@ export default function HostDashboard() {
                   <p className="text-white font-medium">{char.name}</p>
                   <p className="text-gray-500 text-xs">{char.role}</p>
                 </div>
-                {claimed && <span className="text-green-400 text-xs">Taken by {claimed}</span>}
+                {claimed && <span className="text-sage text-xs">Taken by {claimed}</span>}
               </div>
               <p className="text-gray-400 text-xs mt-2">{char.publicBio}</p>
             </button>
@@ -344,7 +346,7 @@ export default function HostDashboard() {
         disabled={!selectedChar || !playerName.trim()}
         className="btn-primary w-full py-4 text-lg mt-6 disabled:opacity-50"
       >
-        Lock In Character
+        Lock in character
       </button>
     </div>
   )

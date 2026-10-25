@@ -83,7 +83,7 @@ export default function CharacterPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
       {/* Game header */}
       <div className="text-center mb-8 sm:mb-10">
-        <p className="text-gold tracking-widest uppercase text-xs sm:text-sm mb-2">
+        <p className="text-gold text-xs sm:text-sm mb-2">
           {data.title}
         </p>
         <p className="text-gray-500 text-sm italic">{data.tagline}</p>
@@ -104,7 +104,7 @@ export default function CharacterPage() {
 
       {/* Public bio */}
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-medium text-gray-500 mb-3">
           Your Public Identity
         </h2>
         <p className="text-gray-300 leading-relaxed">{character.publicBio}</p>
@@ -115,7 +115,7 @@ export default function CharacterPage() {
 
       {/* Private secrets */}
       <div className="mb-8 bg-blood/10 border border-blood/30 rounded-xl p-5 sm:p-6">
-        <h2 className="text-sm font-medium text-blood-light uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-medium text-blood-light mb-3">
           Your Secrets \u2014 For Your Eyes Only
         </h2>
         <p className="text-gray-300 leading-relaxed">{character.privateSecrets}</p>
@@ -126,7 +126,7 @@ export default function CharacterPage() {
 
       {/* Goals */}
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-medium text-gray-500 mb-3">
           Your Goals Tonight
         </h2>
         <p className="text-gray-300 leading-relaxed">{character.goals}</p>
@@ -135,7 +135,7 @@ export default function CharacterPage() {
       {/* Tasks / Missions */}
       {character.tasks && character.tasks.length > 0 && (
         <div className="mb-8 bg-gold/5 border border-gold/20 rounded-xl p-5 sm:p-6">
-          <h2 className="text-sm font-medium text-gold uppercase tracking-wide mb-3">
+          <h2 className="text-sm font-medium text-gold mb-3">
             Your Missions
           </h2>
           <p className="text-gray-600 text-xs mb-3 italic">
@@ -157,7 +157,7 @@ export default function CharacterPage() {
 
       {/* Relationships */}
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-medium text-gray-500 mb-3">
           Your Relationships
         </h2>
         <p className="text-gray-300 leading-relaxed">{character.relationships}</p>
@@ -165,7 +165,7 @@ export default function CharacterPage() {
 
       {/* Conversation starters */}
       <div className="mb-8">
-        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-sm font-medium text-gray-500 mb-3">
           Conversation Starters
         </h2>
         <p className="text-gray-600 text-xs mb-3 italic">
@@ -186,7 +186,7 @@ export default function CharacterPage() {
       {/* Clues assigned to this character */}
       {clues.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+          <h2 className="text-sm font-medium text-gray-500 mb-3">
             Your Clues
           </h2>
           <p className="text-gray-600 text-xs mb-3 italic">

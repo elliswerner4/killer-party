@@ -22,7 +22,7 @@ function SuccessContent() {
 
     async function generate() {
       try {
-        setProgress('Payment confirmed. Generating your mystery...')
+        setProgress('Payment confirmed. Writing your mystery')
 
         const res = await fetch('/api/generate', {
           method: 'POST',
@@ -65,7 +65,9 @@ function SuccessContent() {
                 continue
               }
               if (event.type === 'progress') {
-                setProgress(`Crafting your mystery... (${Math.round(event.length / 1000)}k chars)`)
+                setProgress((p) => p.replace(/ \(.*\)$/, '') + ` (${Math.round(event.length / 1000)}k characters written)`)
+              } else if (event.type === 'stage') {
+                setProgress(event.message)
               } else if (event.type === 'complete') {
                 finished = true
                 setMystery(event.mystery)
@@ -96,7 +98,7 @@ function SuccessContent() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-6">
         <div className="w-12 h-12 border-4 border-gold/30 border-t-gold rounded-full animate-spin mb-6" />
         <p className="text-gold font-display text-xl mb-2">{progress}</p>
-        <p className="text-gray-500 text-sm">This usually takes 30-60 seconds. Crafting something special...</p>
+        <p className="text-gray-500 text-sm">This usually takes one to two minutes. Keep this page open.</p>
       </div>
     )
   }
@@ -104,7 +106,7 @@ function SuccessContent() {
   if (error) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
-        <p className="text-blood-light font-display text-2xl mb-4">Something Went Wrong</p>
+        <p className="text-blood-light font-display text-2xl mb-4">Your mystery wasn’t finished</p>
         <p className="text-gray-400 mb-6 max-w-md">{error}</p>
         <p className="text-gray-500 text-sm">
           Don&apos;t worry — your payment is safe. Please email{' '}

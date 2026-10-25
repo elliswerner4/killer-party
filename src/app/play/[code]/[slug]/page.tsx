@@ -173,7 +173,7 @@ export default function CharacterView() {
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <p className="text-gold text-xs tracking-widest uppercase mb-1">Your Character</p>
+          <p className="text-gold text-xs mb-1">Your character</p>
           <h1 className="font-display text-3xl text-white">{character.name}</h1>
           <p className="text-gray-400 text-sm mt-1">{character.role}</p>
         </div>
@@ -193,8 +193,8 @@ export default function CharacterView() {
 
         <div className="card p-5 text-center">
           <div className="w-8 h-8 border-3 border-gold/30 border-t-gold rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gold font-display text-lg mb-1">Waiting for Host</p>
-          <p className="text-gray-500 text-sm">The mystery will begin shortly...</p>
+          <p className="text-gold font-display text-lg mb-1">Waiting for the host</p>
+          <p className="text-gray-500 text-sm">The mystery starts when your host begins Act 1.</p>
           <p className="text-gray-600 text-xs mt-3">
             Your private secrets and mission will be revealed when the game starts.
           </p>
@@ -232,7 +232,7 @@ export default function CharacterView() {
             <span className="text-gold font-display text-sm">Act {state.currentAct} of 4</span>
           )}
           {state.phase === 'accusations' && (
-            <span className="text-blood-light font-display text-sm">Accusation Time</span>
+            <span className="text-blood-light font-display text-sm">Accusation time</span>
           )}
           {state.phase === 'reveal' && (
             <span className="text-blood-light font-display text-sm">The Reveal</span>
@@ -242,7 +242,7 @@ export default function CharacterView() {
 
       {/* Skill Badge */}
       <div className="card p-3 mb-6 border-gold/30 bg-gold/5">
-        <p className="text-gold text-xs tracking-widest uppercase mb-1">Your Special Skill</p>
+        <p className="text-gold text-xs mb-1">Your special skill</p>
         <p className="text-white text-sm">{character.specialSkill}</p>
       </div>
 

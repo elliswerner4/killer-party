@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MysteryViewer } from '@/components/MysteryViewer'
 
 const THEMES = [
@@ -26,12 +26,22 @@ export default function TestPage() {
   const [error, setError] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [progress, setProgress] = useState('')
+  const [stage, setStage] = useState('')
+  const [passcode, setPasscode] = useState('')
+
+  // Remember the owner passcode on this device so it only has to be typed once.
+  useEffect(() => {
+    try { setPasscode(localStorage.getItem('kp-test-passcode') || '') } catch {}
+  }, [])
 
   async function handleGenerate() {
     setLoading(true)
     setError('')
     setMystery(null)
     setElapsed(0)
+    setStage('')
+    setProgress('')
+    try { localStorage.setItem('kp-test-passcode', passcode) } catch {}
 
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000)
 
@@ -45,6 +55,7 @@ export default function TestPage() {
           guestCount,
           difficulty,
           specialRequests,
+          passcode,
         }),
       })
 
@@ -84,6 +95,8 @@ export default function TestPage() {
             }
             if (event.type === 'progress') {
               setProgress(`Writing your mystery... (${Math.round(event.length / 1000)}k chars)`)
+            } else if (event.type === 'stage') {
+              setStage(event.message)
             } else if (event.type === 'complete') {
               finished = true
               setMystery(event.mystery)
@@ -108,12 +121,12 @@ export default function TestPage() {
     return (
       <div>
         <div className="bg-noir-dark border-b border-gold/20 px-6 py-3 flex items-center justify-between">
-          <p className="text-gold font-display text-sm">TEST MODE — {tier.toUpperCase()} tier</p>
+          <p className="text-gold text-sm font-semibold">Test mystery, {tier} tier</p>
           <button
             onClick={() => setMystery(null)}
             className="text-sm text-gray-400 hover:text-white border border-gray-600 px-3 py-1 rounded"
           >
-            ← Generate Another
+            Generate another
           </button>
         </div>
         <MysteryViewer mystery={mystery} />
@@ -123,14 +136,14 @@ export default function TestPage() {
 
   return (
     <div className="min-h-[80vh] max-w-2xl mx-auto px-6 py-12">
-      <div className="bg-yellow-900/20 border border-yellow-600/40 rounded-lg p-4 mb-8">
-        <p className="text-yellow-400 font-bold text-sm">⚠️ TEST MODE</p>
-        <p className="text-yellow-300/70 text-sm mt-1">
-          This page bypasses payment for testing. Remove before going live.
+      <div className="bg-noir-light border border-gold/40 rounded-lg p-4 mb-8">
+        <p className="text-gold font-semibold text-sm">Owner test page</p>
+        <p className="text-gray-300 text-sm mt-1">
+          Generates a mystery without payment. It needs the owner passcode, so customers can’t run up API costs here.
         </p>
       </div>
 
-      <h1 className="font-display text-3xl text-gold mb-8">Test Mystery Generator</h1>
+      <h1 className="font-display text-4xl text-parchment mb-8">Test mystery generator</h1>
 
       {/* Tier */}
       <div className="mb-6">
@@ -229,7 +242,7 @@ export default function TestPage() {
 
       {/* Special Requests */}
       <div className="mb-8">
-        <label className="text-gray-300 text-sm font-medium mb-2 block">Special Requests</label>
+        <label className="text-gray-300 text-sm font-medium mb-2 block">Special requests</label>
         <textarea
           placeholder="Any special requests? (e.g., 'One character should be vegetarian', 'Include a plot twist about twins')"
           value={specialRequests}
@@ -239,18 +252,37 @@ export default function TestPage() {
         />
       </div>
 
+      {/* Passcode */}
+      <div className="mb-6">
+        <label htmlFor="passcode" className="text-gray-300 text-sm font-medium mb-2 block">Owner passcode</label>
+        <input
+          id="passcode"
+          type="password"
+          value={passcode}
+          onChange={(e) => setPasscode(e.target.value)}
+          autoComplete="current-password"
+          className="input-field"
+        />
+      </div>
+
       {/* Generate Button */}
       <button
         onClick={handleGenerate}
         disabled={loading}
         className="w-full bg-blood hover:bg-blood-light disabled:opacity-50 text-white font-display text-xl py-4 rounded-lg transition"
       >
-        {loading ? `Generating... (${elapsed}s)` : 'Generate Mystery'}
+        {loading ? `Writing… ${elapsed}s` : 'Generate mystery'}
       </button>
+
+      {loading && (
+        <p className="mt-3 text-sm text-gray-400" aria-live="polite">
+          {stage || 'Starting'}{progress ? `, ${progress.replace('Writing your mystery... ', '').replace(/[()]/g, '')} written` : ''}. A full mystery usually takes one to two minutes.
+        </p>
+      )}
 
       {error && (
         <div className="mt-4 bg-red-900/20 border border-red-600/40 rounded-lg p-4">
-          <p className="text-red-400 text-sm">{error}</p>
+          <p className="text-blood-light text-sm">{error}</p>
         </div>
       )}
     </div>

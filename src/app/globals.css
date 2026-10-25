@@ -4,32 +4,65 @@
 
 @layer base {
   body {
-    @apply bg-noir text-gray-100;
+    @apply bg-noir text-parchment;
   }
+  :focus-visible {
+    outline: 2px solid #D6A64F;
+    outline-offset: 2px;
+  }
+  ::selection { background: #8E2433; color: #EFE7D6; }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-blood hover:bg-blood-light text-white font-bold py-3 px-8 rounded-lg
-           transition-all duration-200 shadow-lg hover:shadow-xl
-           hover:-translate-y-0.5 active:translate-y-0;
+    @apply inline-flex items-center justify-center bg-blood text-parchment font-semibold
+           py-3 px-6 rounded-md transition-colors duration-150
+           hover:bg-blood-light disabled:cursor-not-allowed;
   }
   .btn-secondary {
-    @apply bg-transparent border-2 border-gold text-gold hover:bg-gold
-           hover:text-noir-dark font-bold py-3 px-8 rounded-lg
-           transition-all duration-200;
+    @apply inline-flex items-center justify-center border border-parchment/30 text-parchment
+           font-semibold py-3 px-6 rounded-md transition-colors duration-150
+           hover:border-parchment/70 hover:bg-parchment/5;
   }
   .card {
-    @apply bg-noir-light border border-gray-700 rounded-xl p-6 shadow-lg;
+    @apply bg-noir-light border border-parchment/10 rounded-lg p-6;
   }
   .input-field {
-    @apply w-full bg-noir border border-gray-600 rounded-lg px-4 py-3
-           text-gray-100 placeholder-gray-500 focus:outline-none
+    @apply w-full bg-noir-dark border border-parchment/20 rounded-md px-4 py-3
+           text-parchment placeholder-parchment/35 focus:outline-none
            focus:border-gold focus:ring-1 focus:ring-gold transition-colors;
   }
   .label {
-    @apply block text-sm font-medium text-gray-300 mb-2;
+    @apply block text-sm font-medium text-parchment/80 mb-2;
   }
+
+  /* The place card: a folded table card, the one ornamental object on the site. */
+  .place-card {
+    @apply relative bg-parchment text-parchment-ink rounded-sm;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 18px 40px -18px rgba(0, 0, 0, 0.7),
+      0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  .place-card::before {
+    /* the fold */
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 2.75rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(42, 33, 27, 0.18) 12%, rgba(42, 33, 27, 0.18) 88%, transparent);
+  }
+  .code-input {
+    @apply w-full bg-transparent border-0 border-b-2 border-parchment-ink/40 rounded-none
+           px-0 py-2 font-display text-3xl tracking-[0.12em] text-parchment-ink
+           placeholder-parchment-ink/30 focus:outline-none focus:border-blood focus:ring-0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
 
 /* Print styles for mystery packages */

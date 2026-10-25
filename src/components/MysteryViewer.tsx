@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Mystery {
   title: string
@@ -84,6 +84,34 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
   const [hostDashUrl, setHostDashUrl] = useState('')
   const [joinUrl, setJoinUrl] = useState('')
 
+  // A game created from this mystery is remembered on this device, so a reload
+  // shows the same game code instead of creating a second game.
+  const storageKey = `kp-game:${mystery.title}:${mystery.tagline}`
+
+  function applyGame(data: { gameId: string; gameCode?: string; hostKey?: string; characterSlugs: Record<string, number> }) {
+    setGameId(data.gameId)
+    setGameCode(data.gameCode || '')
+    const baseUrl = window.location.origin
+    setHostDashUrl(`${baseUrl}/play/${data.gameId}?host=${data.hostKey || '1'}`)
+    setJoinUrl(`${baseUrl}/join`)
+    setCharacterLinks(
+      Object.entries(data.characterSlugs).map(([slug, index]) => ({
+        name: mystery.characters[index].name,
+        role: mystery.characters[index].role,
+        slug,
+        url: `${baseUrl}/game/${data.gameId}/character/${slug}`,
+      }))
+    )
+  }
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) applyGame(JSON.parse(saved))
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey])
+
   async function createShareLinks() {
     setSharing(true)
     setShareError('')
@@ -98,24 +126,8 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
         throw new Error(err.error || 'Failed to create share links')
       }
       const data = await res.json()
-      setGameId(data.gameId)
-      setGameCode(data.gameCode || '')
-
-      const baseUrl = window.location.origin
-      const hostUrl = `${baseUrl}/play/${data.gameId}?host=1`
-      const guestJoinUrl = `${baseUrl}/join`
-      setHostDashUrl(hostUrl)
-      setJoinUrl(guestJoinUrl)
-
-      const links: CharacterLink[] = Object.entries(data.characterSlugs as Record<string, number>).map(
-        ([slug, index]) => ({
-          name: mystery.characters[index].name,
-          role: mystery.characters[index].role,
-          slug,
-          url: `${baseUrl}/game/${data.gameId}/character/${slug}`,
-        })
-      )
-      setCharacterLinks(links)
+      applyGame(data)
+      try { localStorage.setItem(storageKey, JSON.stringify(data)) } catch {}
       setActiveTab('share')
     } catch (err: unknown) {
       setShareError(err instanceof Error ? err.message : 'Something went wrong')
@@ -179,171 +191,114 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
   }
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'host', label: 'Host Guide' },
+    { id: 'host', label: 'Host guide' },
     { id: 'characters', label: 'Characters' },
     { id: 'clues', label: 'Clues' },
     { id: 'reveal', label: 'Reveal' },
     { id: 'menu', label: 'Menu' },
     { id: 'atmosphere', label: 'Atmosphere' },
-    ...(characterLinks.length > 0 ? [{ id: 'share' as Tab, label: '🔗 Share & Play' }] : []),
+    ...(characterLinks.length > 0 ? [{ id: 'share' as Tab, label: 'Guest links' }] : []),
   ]
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
       {/* Header */}
-      <div className="text-center mb-8">
-        <p className="text-gold tracking-widest uppercase text-sm mb-2">Your Mystery is Ready</p>
-        <h1 className="font-display text-4xl md:text-5xl text-white mb-3">{mystery.title}</h1>
-        <p className="text-gray-400 text-lg italic">{mystery.tagline}</p>
-        <div className="flex justify-center gap-6 mt-4 text-sm text-gray-500">
-          <span>{mystery.guestCount} guests</span>
-          <span>•</span>
-          <span className="capitalize">{mystery.difficulty}</span>
-          <span>•</span>
-          <span>{mystery.theme}</span>
-        </div>
-      </div>
+      <header className="mb-10">
+        <p className="text-gold text-sm">Your mystery is ready</p>
+        <h1 className="mt-2 font-display text-4xl md:text-6xl text-parchment">{mystery.title}</h1>
+        <p className="mt-3 text-gray-300 text-lg font-display italic">{mystery.tagline}</p>
+        <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div><dt className="text-gray-500">Guests</dt><dd className="text-parchment">{mystery.guestCount}</dd></div>
+          <div><dt className="text-gray-500">Difficulty</dt><dd className="text-parchment capitalize">{mystery.difficulty}</dd></div>
+          <div><dt className="text-gray-500">Setting</dt><dd className="text-parchment">{mystery.theme}</dd></div>
+        </dl>
+      </header>
 
-      {/* ===== PROMINENT LAUNCH SECTION ===== */}
       {characterLinks.length === 0 ? (
-        <div className="mb-10 no-print">
-          <div className="relative bg-gradient-to-br from-gold/20 via-noir-light to-blood/20 border-2 border-gold/60 rounded-2xl p-8 text-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-gold/5 to-blood/5 animate-pulse" />
-            <div className="relative z-10">
-              <div className="text-4xl mb-3">🎭</div>
-              <h2 className="font-display text-2xl md:text-3xl text-white mb-3">Ready to Host Your Party?</h2>
-              <p className="text-gray-300 mb-6 max-w-md mx-auto">
-                Launch the companion app to get your Host Dashboard, game code, and shareable links for every guest.
-              </p>
-              <button
-                onClick={createShareLinks}
-                disabled={sharing}
-                className="bg-gold hover:bg-gold/90 text-noir-dark font-bold py-4 px-10 rounded-xl text-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-gold/20"
-              >
-                {sharing ? (
-                  <span className="flex items-center gap-3 justify-center">
-                    <span className="w-5 h-5 border-3 border-noir-dark/30 border-t-noir-dark rounded-full animate-spin" />
-                    Creating your game...
-                  </span>
-                ) : (
-                  '🚀 Launch Companion App'
-                )}
-              </button>
-              <p className="text-gray-500 text-xs mt-4">
-                This creates your Host Dashboard + guest links. You can also browse the mystery content below first.
-              </p>
-            </div>
+        /* Next step: create the live game */
+        <section className="mb-10 no-print rounded-lg border border-gold/50 bg-noir-light p-6 md:p-8 grid md:grid-cols-[1fr_auto] gap-6 md:items-center">
+          <div>
+            <h2 className="font-display text-3xl text-parchment">Next: set up the game for your guests</h2>
+            <p className="mt-2 text-gray-300 max-w-[56ch]">
+              This gives you a game code for guests to join on their phones, and a host dashboard to run the evening. You can read through the mystery first; nothing is sent to anyone yet.
+            </p>
+            {shareError && <p role="alert" className="mt-3 text-sm text-blood-light">{shareError}</p>}
           </div>
-          {shareError && (
-            <div className="bg-blood/20 border border-blood rounded-lg p-3 text-red-300 text-sm text-center mt-4">
-              {shareError}
-            </div>
-          )}
-        </div>
+          <button onClick={createShareLinks} disabled={sharing} className="btn-primary text-base px-7 py-3.5 disabled:opacity-60">
+            {sharing ? 'Setting up your game…' : 'Set up the game'}
+          </button>
+        </section>
       ) : (
-        /* ===== GAME IS LIVE — PERSISTENT TOP BAR ===== */
-        <div className="mb-10 no-print">
-          <div className="bg-gradient-to-r from-green-900/40 to-green-800/20 border-2 border-green-500/50 rounded-2xl p-6 md:p-8">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-green-400 font-medium text-sm tracking-wide uppercase">Game Created — You&apos;re All Set</span>
+        /* The game exists: code, host link, email */
+        <section className="mb-10 no-print rounded-lg border border-gold/50 bg-noir-light p-6 md:p-8">
+          <div className="grid md:grid-cols-[auto_1fr] gap-8">
+            <div>
+              <p className="text-sm text-gray-400">Game code for your guests</p>
+              <p className="mt-1 font-display text-5xl text-gold tracking-[0.08em]">{gameCode || '—'}</p>
+              <p className="mt-2 text-sm text-gray-400 max-w-[30ch]">
+                Guests go to <span className="text-parchment">{joinUrl.replace(/^https?:\/\//, '')}</span> and enter this code.
+              </p>
+              <button onClick={() => copyToClipboard(`Join my murder mystery: go to ${joinUrl} and enter the code ${gameCode}`, setCopiedJoin)} className="btn-secondary mt-4 text-sm py-2 px-4">
+                {copiedJoin ? 'Invitation copied' : 'Copy invitation for guests'}
+              </button>
             </div>
-
-            {/* Host Dashboard — THE most important link */}
-            <div className="bg-noir/60 border border-gold/40 rounded-xl p-5 mb-5">
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-gold font-display text-lg mb-1">🎭 Your Host Dashboard</p>
-                  <p className="text-gray-400 text-sm mb-2">Open this on your phone the night of the party. It controls everything — acts, clues, reveals.</p>
-                  <p className="text-gold/70 text-xs font-mono truncate">{hostDashUrl}</p>
+            <div className="md:border-l md:border-parchment/10 md:pl-8 space-y-6">
+              <div>
+                <h2 className="font-display text-2xl text-parchment">Your host dashboard</h2>
+                <p className="mt-1 text-sm text-gray-300 max-w-[52ch]">
+                  Open this on your phone on the night to start each act, see which clues to hand out and reveal the killer. Keep it to yourself: it shows the solution.
+                </p>
+                <div className="mt-3 flex flex-col sm:flex-row gap-3">
+                  <a href={hostDashUrl} target="_blank" rel="noreferrer" className="btn-primary text-sm py-2 px-4">Open host dashboard</a>
+                  <button onClick={() => copyToClipboard(hostDashUrl, setCopiedHost)} className="btn-secondary text-sm py-2 px-4">
+                    {copiedHost ? 'Link copied' : 'Copy dashboard link'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => copyToClipboard(hostDashUrl, setCopiedHost)}
-                  className={`shrink-0 py-3 px-6 rounded-lg font-bold text-sm transition-all ${
-                    copiedHost
-                      ? 'bg-green-900/60 text-green-300 border border-green-600'
-                      : 'bg-gold text-noir-dark hover:bg-gold/90 shadow-md'
-                  }`}
-                >
-                  {copiedHost ? '✓ Copied!' : 'Copy Dashboard Link'}
-                </button>
               </div>
-            </div>
-
-            {/* Game Code + Join Link */}
-            <div className="grid md:grid-cols-2 gap-4 mb-5">
-              <div className="bg-noir/60 border border-gray-600 rounded-xl p-4 text-center">
-                <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Game Code</p>
-                <p className="font-display text-3xl text-gold tracking-wider">{gameCode || '—'}</p>
-                <p className="text-gray-500 text-xs mt-2">Guests enter this to join</p>
-              </div>
-              <div className="bg-noir/60 border border-gray-600 rounded-xl p-4">
-                <p className="text-gray-400 text-xs uppercase tracking-wide mb-2 text-center">Guest Join Link</p>
-                <p className="text-gold/70 text-xs font-mono text-center mb-3 truncate">{joinUrl}</p>
-                <button
-                  onClick={() => copyToClipboard(joinUrl, setCopiedJoin)}
-                  className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                    copiedJoin
-                      ? 'bg-green-900/60 text-green-300 border border-green-600'
-                      : 'bg-noir-light text-gold border border-gray-600 hover:border-gold'
-                  }`}
-                >
-                  {copiedJoin ? '✓ Copied!' : 'Copy Join Link'}
-                </button>
-              </div>
-            </div>
-
-            {/* Email yourself everything */}
-            <div className="bg-noir/60 border border-gray-600 rounded-xl p-5">
-              <p className="text-white font-medium text-sm mb-1">📧 Email Yourself Everything</p>
-              <p className="text-gray-400 text-xs mb-4">Get the Host Dashboard link, game code, and all character links sent straight to your inbox so you have them ready on party night.</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="email"
-                  value={hostEmail}
-                  onChange={(e) => setHostEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="flex-1 bg-noir border border-gray-600 rounded-lg px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gold transition-colors"
-                />
-                <button
-                  onClick={sendHostEmail}
-                  disabled={!hostEmail.trim() || emailSending || emailSent}
-                  className={`shrink-0 py-3 px-6 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    emailSent
-                      ? 'bg-green-900/60 text-green-300 border border-green-600'
-                      : 'bg-blood hover:bg-blood/80 text-white'
-                  }`}
-                >
-                  {emailSent ? '✓ Email Opened' : emailSending ? 'Sending...' : 'Send to My Email'}
-                </button>
+              <div>
+                <label htmlFor="host-email" className="text-sm text-gray-300">Email yourself the code and links so you have them on the night</label>
+                <div className="mt-2 flex flex-col sm:flex-row gap-3">
+                  <input
+                    id="host-email"
+                    type="email"
+                    value={hostEmail}
+                    onChange={(e) => setHostEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="input-field py-2"
+                  />
+                  <button
+                    onClick={sendHostEmail}
+                    disabled={!hostEmail.trim() || emailSending}
+                    className="btn-secondary text-sm py-2 px-4 shrink-0 disabled:opacity-50"
+                  >
+                    {emailSent ? 'Email drafted' : 'Email me the links'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Small action bar for print */}
-      <div className="flex justify-center mb-8 no-print">
-        <button onClick={() => window.print()} className="btn-secondary text-sm py-2 px-6">
-          Print Entire Package
+      {/* Sections of the package */}
+      <div className="no-print mb-6 flex items-end justify-between gap-4 border-b border-parchment/10">
+        <nav aria-label="Mystery sections" className="flex gap-1 overflow-x-auto -mb-px">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              aria-current={activeTab === tab.id ? 'page' : undefined}
+              className={`whitespace-nowrap px-3 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                activeTab === tab.id ? 'border-gold text-parchment' : 'border-transparent text-gray-400 hover:text-parchment'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={() => window.print()} className="hidden sm:inline-flex shrink-0 mb-2 text-sm text-gray-300 underline underline-offset-4 decoration-parchment/30 hover:text-parchment">
+          Print
         </button>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-2 mb-8 justify-center no-print overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === tab.id
-                ? tab.id === 'share' ? 'bg-green-600 text-white ring-2 ring-green-400/50' : 'bg-gold text-noir-dark'
-                : tab.id === 'share' ? 'bg-green-900/30 text-green-400 border border-green-600/50 hover:bg-green-900/50' : 'bg-noir-light text-gray-400 hover:text-white hover:bg-noir-light/80'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {/* Tab Content */}
@@ -352,11 +307,11 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
         {activeTab === 'host' && (
           <div className="space-y-8">
             <div>
-              <h2 className="font-display text-2xl text-gold mb-4">Host Guide</h2>
+              <h2 className="font-display text-2xl text-gold mb-4">Host guide</h2>
               <p className="text-gray-300 leading-relaxed whitespace-pre-line">{mystery.hostGuide.overview}</p>
             </div>
             <div>
-              <h3 className="font-display text-xl text-white mb-3">Evening Timeline</h3>
+              <h3 className="font-display text-xl text-white mb-3">Evening timeline</h3>
               <p className="text-gray-300 leading-relaxed whitespace-pre-line">{mystery.hostGuide.timeline}</p>
             </div>
             {[
@@ -415,7 +370,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   )}
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
                     Public Bio — Everyone Knows This
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
@@ -423,7 +378,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   </p>
                 </div>
                 <div className="bg-blood/10 border border-blood/30 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blood-light uppercase tracking-wide mb-2">
+                  <h4 className="text-sm font-medium text-blood-light mb-2">
                     Your Secrets — For Your Eyes Only
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
@@ -431,7 +386,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
                     Your Goals Tonight
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
@@ -440,7 +395,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                 </div>
                 {mystery.characters[selectedCharacter].tasks && mystery.characters[selectedCharacter].tasks.length > 0 && (
                   <div className="bg-gold/5 border border-gold/20 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gold uppercase tracking-wide mb-3">
+                    <h4 className="text-sm font-medium text-gold mb-3">
                       Your Missions
                     </h4>
                     <ul className="space-y-2">
@@ -454,7 +409,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   </div>
                 )}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
                     Your Relationships
                   </h4>
                   <p className="text-gray-300 leading-relaxed">
@@ -462,7 +417,7 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
                     Conversation Starters
                   </h4>
                   <ul className="space-y-2">
@@ -583,9 +538,9 @@ export function MysteryViewer({ mystery }: { mystery: Mystery }) {
         {/* SHARE LINKS */}
         {activeTab === 'share' && characterLinks.length > 0 && (
           <div>
-            <h2 className="font-display text-2xl text-gold mb-2">Share with Your Guests</h2>
+            <h2 className="font-display text-2xl text-parchment mb-2">Private links for each guest</h2>
             <p className="text-gray-400 text-sm mb-6">
-              Send each guest their unique link. They&apos;ll see only their character&apos;s info — backstory, secrets, goals, and conversation starters. No spoilers!
+              If a guest can’t use the game code, send them their own link instead. It opens only their character: backstory, secrets, goals and conversation starters.
             </p>
             <div className="space-y-3">
               {characterLinks.map((link, i) => (

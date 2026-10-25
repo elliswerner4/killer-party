@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { track } from '@vercel/analytics'
 
 const THEMES = [
@@ -28,6 +28,12 @@ interface GuestInfo {
 
 export default function CreatePage() {
   const [tier, setTier] = useState<'classic' | 'grand'>('grand')
+
+  // Honor the tier picked on the pricing section (/create?tier=classic)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tier')
+    if (t === 'classic' || t === 'grand') setTier(t)
+  }, [])
   const [theme, setTheme] = useState('')
   const [customTheme, setCustomTheme] = useState('')
   const [guestCount, setGuestCount] = useState(6)
@@ -123,10 +129,10 @@ export default function CreatePage() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-16">
       <h1 className="font-display text-4xl text-center mb-2">
-        Design Your <span className="text-blood-light">Mystery</span>
+        Create your mystery
       </h1>
       <p className="text-gray-400 text-center mb-12">
-        Customize every detail. We'll build something no one's ever played before.
+        Choose a package, a setting and your guests. You’ll pay on the next screen, and your mystery is written as soon as payment goes through.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-10">

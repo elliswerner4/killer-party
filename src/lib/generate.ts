@@ -98,6 +98,9 @@ const STEP_MAX_TOKENS = 16000
 // gets a clear message instead of a stream that just stops.
 const TIME_BUDGET_MS = 280_000
 
+// The continuity check runs only if at least this much of the budget is left.
+const CONTINUITY_MIN_MS = 75_000
+
 // Claude Sonnet 5.5 thinks before answering unless told not to, and those
 // tokens count toward max_tokens and add a minute or more per step. These
 // steps are writing, not reasoning, so turn up-front thinking off.
@@ -137,6 +140,7 @@ interface MysteryOutline {
   secondaryCrime: string
   redHerrings: string[]
   facts: string[]
+  scriptedLines?: { moment: string; line: string }[]
   evidence: { act: string; givenTo: string; shows: string; pointsTo: string }[]
   actBeats: { act1: string; act2: string; act3: string; act4: string }
   characters: OutlineCharacter[]
@@ -192,6 +196,10 @@ ${guestSection(config)}
 - facts: the ground truth every later writer must respect. Who owns each key object, who was where, who did the secondary crime and how they hid it, and how the killer got access (for a locked room, exactly how). Later writers copy these, so make them specific and never contradictory.
 - evidence: the planned clue cards, in act order. Together the act1-act3 evidence must let a careful player prove the killer by connecting at least two items, without any single item naming them. Each item's "pointsTo" says privately what it proves; players never see that field. Every key fact in the solution (method, weapon, access, motive) must be backed by at least one evidence item. Act 4 has no evidence: it is for accusations.
 - Plan ${config.guestCount + 4} evidence items in total. Every character receives at least one, and red herrings count as evidence items.
+- Every evidence item is something the host hands out or reads aloud in its act. Never hide evidence inside a character's belongings, a locked box or anywhere guests would have to search.
+- The decisive evidence that proves the killer goes to "all" (or is read aloud by the host) in act3, so the solution never depends on one guest choosing to share.
+- "shows" must contain every detail a player needs (colours, initials, times, materials). Anything not written in "shows" can't be used to solve the case.
+- scriptedLines: the few exact lines that are spoken at set moments (the toast, the announcement, the discovery of the body). Later writers must quote them word for word.
 - Every character has a unique investigative skill that others must seek out, and a secret that links them to at least one other character.
 - Everything is themed to "${config.theme}".
 - This is a planning outline, not the finished writing: keep every field within its word limit. Later steps write the full text.
@@ -212,6 +220,7 @@ ${JSON_ONLY}
   "secondaryCrime": "string (max 30 words: the smaller crime and who is involved)",
   "redHerrings": ["string (max 20 words each)"],
   "facts": ["string (max 20 words each; 6-8 facts)"],
+  "scriptedLines": [{ "moment": "string (max 8 words)", "line": "string (max 30 words, the exact words spoken)" }],
   "evidence": [
     { "act": "act1 | act2 | act3", "givenTo": "character name or 'all'", "shows": "string (max 25 words: what the clue physically shows)", "pointsTo": "string (max 15 words: what it proves, or 'red herring: ...')" }
   ],
@@ -246,6 +255,8 @@ ${outlineContext(config, outline)}
 - Give the host concrete instructions: what to say, when to hand out clues, and when to steer attention to quieter characters.
 - Reference the characters' special skills so the host knows when to direct players to use them.
 - The host does not play a character and knows the solution.
+- Quote the outline's "scriptedLines" word for word wherever they come up; never paraphrase them.
+- Tell the host exactly which evidence items to hand out, and to whom, in each act, matching the outline's evidence plan.
 `
 }
 
@@ -278,7 +289,7 @@ ${outlineContext(config, outline)}
 
 ## RULES
 - Write exactly one clue card for each item in the outline's "evidence" list, in the same order, with the same act and recipient. Do not add, drop or move clues.
-- The card shows only what "shows" describes, written as the physical evidence a player would hold (a note, a receipt, a witness statement). The "pointsTo" field is for you only; never state its conclusion on the card.
+- The card shows what "shows" describes, written as the physical evidence a player would hold (a note, a receipt, a photograph, a witness statement). Keep every concrete detail from "shows" (colours, initials, times, materials), because players can only use what is written on the card. The "pointsTo" field is for you only; never state its conclusion on the card.
 - No clue may name the killer as the killer, say who committed the murder, or explain the motive outright. Players must work it out by connecting clues.
 - Stay consistent with the outline's "facts": the same owners, initials, objects, times and places.
 - Use exact character names in "givenTo", or "all" for clues read to everyone.
@@ -308,6 +319,7 @@ ${JSON.stringify(clues.map((c) => ({ id: c.id, title: c.title, act: c.revealedIn
 ## RULES
 - The reveal proves the solution step by step using ONLY the clue cards above, citing them by title. Do not introduce new evidence, new events or new crimes that no clue supports.
 - Match the clue cards and the outline's facts exactly: the same owners, initials, objects and times. If a clue was given to one character, do not say it belonged to another.
+- When you cite a clue, describe only what its text literally says. Never add details the card doesn't contain, and never say a clue shows the opposite of what it says.
 - Explain how the killer had access, especially for any locked room, using the outline's facts.
 - Also explain each red herring briefly so players see why it misled them.
 
@@ -317,6 +329,34 @@ ${JSON_ONLY}
   "accusationPrompt": "string (50-100 words the host says to prompt guests to accuse)",
   "revealScript": "string (300-500 words: who did it, how and why, walking through the clue cards)",
   "epilogue": "string (one short paragraph per playable character, each starting with the character's name and a colon, separated by blank lines)"
+}`
+}
+
+function continuityPrompt(outline: MysteryOutline, clues: GeneratedMystery['clues'], reveal: GeneratedMystery['reveal']): string {
+  return `You are the continuity editor for a murder mystery dinner party game. Check the host's reveal against the clue cards players actually hold, and fix the reveal wherever it disagrees.
+
+## GROUND TRUTH
+Killer: ${outline.solution.killer}
+Facts: ${JSON.stringify(outline.facts || [])}
+
+## CLUE CARDS (exactly what players hold; these are fixed and cannot change)
+${JSON.stringify(clues.map((c) => ({ title: c.title, act: c.revealedIn, givenTo: c.givenTo, text: c.content })), null, 2)}
+
+## THE REVEAL TO CHECK
+${JSON.stringify({ buildup: reveal.buildup, revealScript: reveal.revealScript }, null, 2)}
+
+## WHAT TO FIX
+- Any claim that a clue shows something its text does not say, or the opposite of what it says.
+- Any detail attributed to evidence (owner, colour, initials, material, time) that no clue card states.
+- Any evidence, event or crime the reveal relies on that no clue card supports: remove it or rest the argument on cards that do support it.
+- Anything that contradicts the facts.
+Keep the same voice and roughly the same length. If nothing needs fixing, return the text unchanged.
+
+${JSON_ONLY}
+{
+  "issues": ["string (each problem you fixed, max 25 words; empty if none)"],
+  "buildup": "string",
+  "revealScript": "string"
 }`
 }
 
@@ -493,7 +533,24 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
     callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline).then(async (clueResult) => {
       const clues = Array.isArray(clueResult.clues) ? clueResult.clues.filter((c) => c.revealedIn !== 'act4') : []
       onProgress({ type: 'stage', message: 'Writing the reveal' })
-      const reveal = await callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline, clues), STEP_MAX_TOKENS, onText, deadline)
+      let reveal = await callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline, clues), STEP_MAX_TOKENS, onText, deadline)
+
+      // Continuity pass: make the reveal say only what the clue cards say.
+      // Skipped if time is short; the reveal above already cites only these clues.
+      if (deadline - Date.now() > CONTINUITY_MIN_MS) {
+        onProgress({ type: 'stage', message: 'Checking the clues against the reveal' })
+        try {
+          const edit = await callJSON<{ issues?: string[]; buildup?: string; revealScript?: string }>(
+            'continuity check', continuityPrompt(outline, clues, reveal), STEP_MAX_TOKENS, onText, deadline
+          )
+          if (edit.revealScript && edit.revealScript.length > 200) {
+            reveal = { ...reveal, buildup: edit.buildup || reveal.buildup, revealScript: edit.revealScript }
+          }
+          if (edit.issues?.length) console.log('[generate] continuity fixes:', edit.issues)
+        } catch (err) {
+          console.error('[generate] continuity check skipped:', err)
+        }
+      }
       return { clues, reveal }
     }),
     callJSON<Pick<GeneratedMystery, 'menu' | 'atmosphere'>>('menu', extrasPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),

@@ -97,6 +97,9 @@ function escapeHtml(s: string): string {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_SUPPORT_INBOX = 'killerpartygames@mail.grokbot.com'
+// The Resend account owner's address: the only one Resend will deliver to
+// before a sending domain is verified.
+const DEFAULT_SUPPORT_FALLBACK = 'elliswerner4@gmail.com'
 
 export interface SupportMessage {
   name: string
@@ -133,13 +136,28 @@ export async function sendSupportMessage(msg: SupportMessage): Promise<void> {
   `
   const text = `${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${msg.message}`
 
-  const { error } = await resend.emails.send({
-    from: getFromAddress(),
-    to: process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_INBOX,
-    replyTo: msg.email,
-    subject: `[Support] ${msg.topic}: ${msg.name}`,
-    html,
-    text,
-  })
-  if (error) throw new Error(`Resend rejected the message: ${error.message}`)
+  const inbox = process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_INBOX
+  const send = (to: string, note = '') =>
+    resend.emails.send({
+      from: getFromAddress(),
+      to,
+      replyTo: msg.email,
+      subject: `[Support] ${msg.topic}: ${msg.name}`,
+      html: note ? `<p style="font-family: system-ui, sans-serif; color: #888; font-size: 12px;">${note}</p>${html}` : html,
+      text: note ? `${note}\n\n${text}` : text,
+    })
+
+  const first = await send(inbox)
+  if (!first.error) return
+
+  // Until a sending domain is verified, Resend only delivers to the account
+  // owner's address. Deliver there rather than losing the customer's message.
+  if (/only send testing emails|verify a domain/i.test(first.error.message)) {
+    const fallback = process.env.SUPPORT_FALLBACK_EMAIL || DEFAULT_SUPPORT_FALLBACK
+    console.warn(`[support] Resend is in testing mode; delivering to ${fallback} instead of the support inbox`)
+    const second = await send(fallback, `Delivered here because no sending domain is verified in Resend yet. Intended for ${inbox}.`)
+    if (!second.error) return
+    throw new Error(`Resend rejected the fallback message: ${second.error.message}`)
+  }
+  throw new Error(`Resend rejected the message: ${first.error.message}`)
 }

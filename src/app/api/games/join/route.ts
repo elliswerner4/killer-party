@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
-import { getGameByCode } from '@/lib/storage'
+import { getGameByCode, withStorage } from '@/lib/storage'
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get('code')
 
   if (!code) {
@@ -35,3 +35,5 @@ export async function GET(req: NextRequest) {
     { headers: { 'Content-Type': 'application/json' } }
   )
 }
+
+export const GET = withStorage(handleGET)

@@ -97,7 +97,7 @@ export default function SupportPage() {
           {topic !== 'Question before buying' && (
             <div>
               <label htmlFor="order" className="label">Order or game code <span className="text-gray-500 font-normal">(if you have one)</span></label>
-              <input id="order" value={orderRef} onChange={(e) => setOrderRef(e.target.value)} maxLength={200} placeholder="e.g. KNIFE-742" className="input-field" />
+              <input id="order" value={orderRef} onChange={(e) => setOrderRef(e.target.value)} maxLength={200} placeholder="e.g. KNIFE-7421" className="input-field" />
             </div>
           )}
 

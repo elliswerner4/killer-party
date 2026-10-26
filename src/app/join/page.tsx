@@ -9,7 +9,7 @@ export default function JoinPage() {
         <JoinCodeCard autoFocus headingLevel="h1" />
         <div className="mt-10 space-y-3 text-sm text-gray-400 leading-relaxed">
           <p>
-            The code is in the invitation or message from your host and looks like <span className="text-parchment font-semibold tracking-wider">KNIFE-742</span>.
+            The code is in the invitation or message from your host and looks like <span className="text-parchment font-semibold tracking-wider">KNIFE-7421</span>.
             After you join, you pick your character and get your secrets and clues on this phone.
           </p>
           <p>

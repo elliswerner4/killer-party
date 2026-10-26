@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
-import { getGame, getGameState, updateGameState, isHostKey } from '@/lib/storage'
+import { getGame, getGameState, updateGameState, isHostKey, withStorage } from '@/lib/storage'
 
 // GET — poll current game state
-export async function GET(
+async function handleGET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -21,7 +21,7 @@ export async function GET(
 }
 
 // POST — host advances game state
-export async function POST(
+async function handlePOST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -113,3 +113,7 @@ export async function POST(
     headers: { 'Content-Type': 'application/json' },
   })
 }
+
+export const GET = withStorage(handleGET)
+
+export const POST = withStorage(handlePOST)

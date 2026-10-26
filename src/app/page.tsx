@@ -111,7 +111,7 @@ export default function Home() {
               <p className="font-display text-xl text-parchment">Death at the Gilded Lily</p>
               <p className="text-sm text-gray-500">Act 2 of 4</p>
             </div>
-            <p className="mt-1 text-sm text-gray-500">Game code <span className="text-gold font-semibold tracking-wider">RAVEN-318</span></p>
+            <p className="mt-1 text-sm text-gray-500">Game code <span className="text-gold font-semibold tracking-wider">RAVEN-3185</span></p>
             <div className="mt-5 border-t border-parchment/10 pt-4">
               <p className="text-sm font-semibold text-parchment">Clues to hand out</p>
               <ul className="mt-2 space-y-2 text-sm">
@@ -167,7 +167,7 @@ export default function Home() {
           </div>
           <div>
             <h2 className="font-display text-4xl text-parchment">Got a code?</h2>
-            <p className="mt-3 text-gray-300 max-w-[40ch]">Your host sent you a game code like KNIFE-742. Enter it to pick your character.</p>
+            <p className="mt-3 text-gray-300 max-w-[40ch]">Your host sent you a game code like KNIFE-7421. Enter it to pick your character.</p>
             <a href="/join" className="btn-secondary mt-6">Join a game</a>
           </div>
         </div>

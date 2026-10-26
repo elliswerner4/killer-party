@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
-import { getGame, getCharacterBySlug, isHostKey } from '@/lib/storage'
+import { getGame, getCharacterBySlug, isHostKey, withStorage } from '@/lib/storage'
 
-export async function GET(
+async function handleGET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -112,3 +112,5 @@ export async function GET(
     { headers: { 'Content-Type': 'application/json' } }
   )
 }
+
+export const GET = withStorage(handleGET)

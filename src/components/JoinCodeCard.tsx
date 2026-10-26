@@ -53,7 +53,7 @@ export function JoinCodeCard({ autoFocus = false, headingLevel = 'h2' }: { autoF
           inputMode="text"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="KNIFE-742"
+          placeholder="KNIFE-7421"
           className="code-input"
           maxLength={20}
           autoFocus={autoFocus}

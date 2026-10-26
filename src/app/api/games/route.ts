@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
-import { saveGame } from '@/lib/storage'
+import { saveGame, withStorage, StorageUnavailableError } from '@/lib/storage'
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const { mystery } = await req.json()
 
@@ -27,11 +27,14 @@ export async function POST(req: NextRequest) {
       }
     )
   } catch (err: unknown) {
+    if (err instanceof StorageUnavailableError) throw err // withStorage turns this into a clear 503
     console.error('Save game error:', err)
-    const message = err instanceof Error ? err.message : 'Failed to save game'
+    const message = 'We couldn’t set up your game. Please try again.'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 }
+
+export const POST = withStorage(handlePOST)

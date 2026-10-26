@@ -1,11 +1,11 @@
 {
   "name": "Killer Party",
   "short_name": "Killer Party",
-  "description": "AI-generated murder mystery dinner party companion",
+  "description": "Join a murder mystery dinner party and play your character",
   "start_url": "/join",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "background_color": "#12302A",
+  "theme_color": "#12302A",
   "orientation": "portrait",
   "icons": [
     {
@@ -17,6 +17,12 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

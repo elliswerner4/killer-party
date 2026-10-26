@@ -60,13 +60,9 @@ export default function TestPage() {
       })
 
       if (!res.ok) {
-        const text = await res.text()
-        try {
-          const data = JSON.parse(text)
-          throw new Error(data.error || 'Generation failed')
-        } catch {
-          throw new Error(text || 'Generation failed')
-        }
+        // Show the server's own message; never the raw response body.
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Generation failed. Please try again.')
       }
 
       // Read the SSE stream
@@ -276,7 +272,7 @@ export default function TestPage() {
 
       {loading && (
         <p className="mt-3 text-sm text-gray-400" aria-live="polite">
-          {stage || 'Starting'}{progress ? `, ${progress.replace('Writing your mystery... ', '').replace(/[()]/g, '')} written` : ''}. A full mystery usually takes one to two minutes.
+          {stage || 'Starting'}{progress ? `, ${progress.replace('Writing your mystery... ', '').replace(/[()]/g, '')} written` : ''}. A full mystery usually takes two to three minutes.
         </p>
       )}
 

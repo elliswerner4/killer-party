@@ -31,13 +31,9 @@ function SuccessContent() {
         })
 
         if (!res.ok) {
-          const text = await res.text()
-          try {
-            const data = JSON.parse(text)
-            throw new Error(data.error || 'Generation failed')
-          } catch {
-            throw new Error(text || 'Generation failed')
-          }
+          // Show the server's own message; never the raw response body.
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || 'We couldn’t start writing your mystery. Refresh this page to try again.')
         }
 
         // Read the SSE stream
@@ -98,7 +94,7 @@ function SuccessContent() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-6">
         <div className="w-12 h-12 border-4 border-gold/30 border-t-gold rounded-full animate-spin mb-6" />
         <p className="text-gold font-display text-xl mb-2">{progress}</p>
-        <p className="text-gray-500 text-sm">This usually takes one to two minutes. Keep this page open.</p>
+        <p className="text-gray-500 text-sm">This usually takes two to three minutes. Keep this page open.</p>
       </div>
     )
   }

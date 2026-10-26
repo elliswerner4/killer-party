@@ -22,7 +22,7 @@ function json(body: unknown, status: number) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   if (!passcodeOk(body.passcode)) {
-    return json({ error: 'Wrong passcode.', code: 'bad_passcode' }, 401)
+    return json({ error: 'That passcode isn’t right. Check it and try again.', code: 'bad_passcode' }, 401)
   }
 
   const tier = body.tier === 'grand' ? 'grand' : 'classic'

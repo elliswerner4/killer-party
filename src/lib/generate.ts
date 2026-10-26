@@ -88,7 +88,21 @@ export interface GeneratedMystery {
 // is roughly one outline call plus the slowest expansion call.
 // ---------------------------------------------------------------------------
 
-const CHARACTERS_PER_BATCH = 3
+const CHARACTERS_PER_BATCH = 2
+
+// Ceiling per step. Only tokens actually written are billed, so this is a
+// safety margin, not a cost: a step that hits it fails instead of finishing.
+const STEP_MAX_TOKENS = 16000
+
+// Vercel stops the function at 300s. Give up a little earlier so the customer
+// gets a clear message instead of a stream that just stops.
+const TIME_BUDGET_MS = 280_000
+
+// Claude Sonnet 5.5 thinks before answering unless told not to, and those
+// tokens count toward max_tokens and add a minute or more per step. These
+// steps are writing, not reasoning, so turn up-front thinking off.
+// (On Sonnet 5.5 {type: 'disabled'} is rejected; 'between_tools' is the off setting.)
+const THINKING: Anthropic.ThinkingConfigParam = { type: 'between_tools' }
 
 const DIFFICULTY_GUIDE = {
   casual:
@@ -103,7 +117,7 @@ interface OutlineCharacter {
   name: string
   role: string
   specialSkill: string
-  publicBio: string
+  publicBio?: string
   secretSummary: string
   plotFunction: string
 }
@@ -175,31 +189,31 @@ ${guestSection(config)}
 - Exactly one playable character is the killer. The solution must be provable from the evidence.
 - Every character has a unique investigative skill that others must seek out, and a secret that links them to at least one other character.
 - Everything is themed to "${config.theme}".
+- This is a planning outline, not the finished writing: keep every field within its word limit. Later steps write the full text.
 
 ${JSON_ONLY}
 {
   "title": "string",
   "tagline": "string (one evocative line)",
-  "setting": "string (2-3 sentences: where and when the party takes place)",
-  "victim": "string (name and who they were, 1-2 sentences)",
+  "setting": "string (max 40 words: where and when the party takes place)",
+  "victim": "string (max 25 words: name and who they were)",
   "solution": {
     "killer": "string (exact name of one playable character)",
-    "motive": "string",
-    "method": "string",
-    "weapon": "string",
-    "keyEvidence": "string (the clue that proves it)"
+    "motive": "string (max 30 words)",
+    "method": "string (max 30 words)",
+    "weapon": "string (max 10 words)",
+    "keyEvidence": "string (max 30 words: the clue that proves it)"
   },
-  "secondaryCrime": "string (the smaller crime and which characters are involved)",
-  "redHerrings": ["string"],
-  "actBeats": { "act1": "string", "act2": "string", "act3": "string", "act4": "string" },
+  "secondaryCrime": "string (max 30 words: the smaller crime and who is involved)",
+  "redHerrings": ["string (max 20 words each)"],
+  "actBeats": { "act1": "string (max 40 words)", "act2": "string (max 40 words)", "act3": "string (max 40 words)", "act4": "string (max 40 words)" },
   "characters": [
     {
       "name": "string",
-      "role": "string (public role in the setting)",
-      "specialSkill": "string (unique investigative ability others must seek out)",
-      "publicBio": "string (what everyone knows, 2-3 sentences)",
-      "secretSummary": "string (their secrets in brief, naming the characters they link to)",
-      "plotFunction": "string (killer / red herring / secondary crime / alibi witness / etc.)"
+      "role": "string (max 8 words: public role in the setting)",
+      "specialSkill": "string (max 15 words: unique investigative ability others must seek out)",
+      "secretSummary": "string (max 35 words: their secrets, naming the characters they link to)",
+      "plotFunction": "string (max 6 words: killer / red herring / secondary crime / alibi witness / etc.)"
     }
   ]
 }`
@@ -213,26 +227,37 @@ ${JSON.stringify(outline, null, 2)}
 ${basics(config)}`
 }
 
-function hostGuidePrompt(config: MysteryConfig, outline: MysteryOutline): string {
-  return `You are a professional murder mystery writer. Write the HOST GUIDE for this dinner party game.
+function hostGuideBase(config: MysteryConfig, outline: MysteryOutline, part: string): string {
+  return `You are a professional murder mystery writer. Write ${part} of the HOST GUIDE for this dinner party game.
 
 ${outlineContext(config, outline)}
 
 ## RULES
 - The evening lasts 2.5 to 3.5 hours across four acts.
-- Give the host concrete, scene-by-scene instructions: what to say, when to hand out clues, and when to steer attention to quieter characters.
+- Give the host concrete instructions: what to say, when to hand out clues, and when to steer attention to quieter characters.
 - Reference the characters' special skills so the host knows when to direct players to use them.
 - The host does not play a character and knows the solution.
+`
+}
 
+function hostOverviewPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  return `${hostGuideBase(config, outline, 'the overview, timeline and tips')}
 ${JSON_ONLY}
 {
-  "overview": "string (2-3 paragraphs on the evening)",
-  "timeline": "string (minute-by-minute schedule)",
-  "act1": "string (detailed host instructions)",
-  "act2": "string",
-  "act3": "string",
-  "act4": "string",
-  "tips": "string (hosting tips and contingencies)"
+  "overview": "string (150-250 words on the evening)",
+  "timeline": "string (minute-by-minute schedule, one line per step)",
+  "tips": "string (100-200 words of hosting tips and contingencies)"
+}`
+}
+
+function hostActsPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  return `${hostGuideBase(config, outline, 'the act-by-act instructions')}
+${JSON_ONLY}
+{
+  "act1": "string (200-350 words of host instructions for act 1)",
+  "act2": "string (200-350 words)",
+  "act3": "string (200-350 words)",
+  "act4": "string (150-300 words, ending as accusations begin)"
 }`
 }
 
@@ -256,7 +281,7 @@ ${JSON_ONLY}
     {
       "id": "clue-1",
       "title": "string",
-      "content": "string (the clue text players read)",
+      "content": "string (max 60 words: the clue text players read)",
       "revealedIn": "act1 | act2 | act3 | act4",
       "givenTo": "string (character name or 'all')"
     }
@@ -271,10 +296,10 @@ ${outlineContext(config, outline)}
 
 ${JSON_ONLY}
 {
-  "buildup": "string (read aloud to build tension before accusations)",
-  "accusationPrompt": "string (what the host says to prompt guests to accuse)",
-  "revealScript": "string (the full dramatic reveal: who did it, how, and why, walking through the evidence)",
-  "epilogue": "string (what became of each character afterwards)"
+  "buildup": "string (100-200 words read aloud to build tension before accusations)",
+  "accusationPrompt": "string (50-100 words the host says to prompt guests to accuse)",
+  "revealScript": "string (300-500 words: who did it, how and why, walking through the evidence)",
+  "epilogue": "string (one or two sentences per character on what became of them)"
 }`
 }
 
@@ -317,7 +342,7 @@ function charactersPrompt(config: MysteryConfig, outline: MysteryOutline, names:
 ${outlineContext(config, outline)}
 ${guestSection(config)}
 ## RULES ("no boring characters")
-- Keep each character's name, role, specialSkill and publicBio consistent with the outline.
+- Keep each character's name, role and specialSkill consistent with the outline, and write a publicBio that fits it.
 - privateSecrets: at least 2 secrets, one tied to the murder plot and one personal, and they must implicate or link to other named characters.
 - goals: must directly conflict with at least one other character's goals.
 - tasks: 3-5 concrete actions. At least one requires cooperating with a specific named character and at least one puts them in conflict with someone. Avoid vague tasks like "investigate the crime".
@@ -332,12 +357,12 @@ ${JSON_ONLY}
       "name": "string",
       "role": "string",
       "specialSkill": "string",
-      "publicBio": "string",
-      "privateSecrets": "string",
-      "goals": "string",
-      "tasks": ["string"],
-      "relationships": "string",
-      "conversationPrompts": ["string"]
+      "publicBio": "string (2-3 sentences everyone knows)",
+      "privateSecrets": "string (80-150 words)",
+      "goals": "string (40-80 words)",
+      "tasks": ["string (one sentence each)"],
+      "relationships": "string (one short line per other character)",
+      "conversationPrompts": ["string (one line each)"]
     }
   ]
 }`
@@ -369,44 +394,55 @@ function extractJSON(text: string): string {
 }
 
 /**
- * Run one generation call and parse its JSON. Retries once on a cut-off or
- * unparseable response; the SDK already retries rate limits and overloads.
+ * Run one generation call and parse its JSON. Retries once on an unparseable
+ * reply or a dropped connection, if there is time; the SDK already retries
+ * rate limits and overloads. A reply cut off at the token ceiling is not
+ * retried, because the same request would be cut off again.
  */
 async function callJSON<T>(
   label: string,
   prompt: string,
   maxTokens: number,
-  onText: (delta: number) => void
+  onText: (delta: number) => void,
+  deadline: number
 ): Promise<T> {
   let lastError: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
+    const remaining = deadline - Date.now()
+    if (remaining < 15_000) break
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), remaining)
     try {
-      const stream = anthropic.messages.stream({
-        model: MODEL,
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content: prompt }],
-      })
+      const stream = anthropic.messages.stream(
+        { model: MODEL, max_tokens: maxTokens, thinking: THINKING, messages: [{ role: 'user', content: prompt }] },
+        { signal: controller.signal }
+      )
       stream.on('text', (t) => onText(t.length))
       const message = await stream.finalMessage()
       if (message.stop_reason === 'max_tokens') {
-        throw new Error(`${label} was cut off at ${maxTokens} tokens`)
+        lastError = new Error(`The ${label} ran past ${maxTokens} tokens.`)
+        console.error(`Generation step "${label}" hit max_tokens`, message.usage)
+        break
       }
       const text = message.content.map((b) => (b.type === 'text' ? b.text : '')).join('')
       return JSON.parse(extractJSON(text)) as T
     } catch (err) {
-      lastError = err
-      // Model or auth problems will not fix themselves on retry.
-      const status = (err as { status?: number })?.status
-      if (status === 400 || status === 401 || status === 403 || status === 404) break
+      lastError = controller.signal.aborted ? new Error('It ran out of time.') : err
       console.error(`Generation step "${label}" failed (attempt ${attempt}):`, err)
+      // Model, auth and request problems will not fix themselves on retry.
+      const status = (err as { status?: number })?.status
+      if (controller.signal.aborted || status === 400 || status === 401 || status === 403 || status === 404) break
+    } finally {
+      clearTimeout(timer)
     }
   }
-  const detail = lastError instanceof Error ? lastError.message : String(lastError)
+  const detail = lastError instanceof Error ? lastError.message : lastError ? String(lastError) : 'It ran out of time.'
   throw new Error(`Could not write the ${label}. ${detail}`)
 }
 
 export async function generateMystery(config: MysteryConfig, onProgress: ProgressFn = () => {}): Promise<GeneratedMystery> {
   const template = selectTemplate(config.guestCount)
+  const deadline = Date.now() + TIME_BUDGET_MS
 
   let total = 0
   let lastSent = 0
@@ -419,7 +455,7 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
   }
 
   onProgress({ type: 'stage', message: 'Plotting the murder' })
-  const outline = await callJSON<MysteryOutline>('outline', outlinePrompt(config, template), 8000, onText)
+  const outline = await callJSON<MysteryOutline>('outline', outlinePrompt(config, template), STEP_MAX_TOKENS, onText, deadline)
 
   if (!Array.isArray(outline.characters) || outline.characters.length === 0) {
     throw new Error('Could not write the outline. It had no characters.')
@@ -433,20 +469,23 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
     batches.push(names.slice(i, i + CHARACTERS_PER_BATCH))
   }
 
-  const [hostGuide, clueResult, reveal, extras, ...characterBatches] = await Promise.all([
-    callJSON<GeneratedMystery['hostGuide']>('host guide', hostGuidePrompt(config, outline), 8000, onText),
-    callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline, template), 8000, onText),
-    callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline), 6000, onText),
-    callJSON<Pick<GeneratedMystery, 'menu' | 'atmosphere'>>('menu', extrasPrompt(config, outline), 4000, onText),
+  const [hostOverview, hostActs, clueResult, reveal, extras, ...characterBatches] = await Promise.all([
+    callJSON<Pick<GeneratedMystery['hostGuide'], 'overview' | 'timeline' | 'tips'>>('host guide overview', hostOverviewPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
+    callJSON<Pick<GeneratedMystery['hostGuide'], 'act1' | 'act2' | 'act3' | 'act4'>>('host guide acts', hostActsPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
+    callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline, template), STEP_MAX_TOKENS, onText, deadline),
+    callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
+    callJSON<Pick<GeneratedMystery, 'menu' | 'atmosphere'>>('menu', extrasPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
     ...batches.map((batch, i) =>
       callJSON<{ characters: GeneratedMystery['characters'] }>(
         `character sheets (${i + 1}/${batches.length})`,
         charactersPrompt(config, outline, batch),
-        8000,
-        onText
+        STEP_MAX_TOKENS,
+        onText,
+        deadline
       )
     ),
   ])
+  const hostGuide: GeneratedMystery['hostGuide'] = { ...hostOverview, ...hostActs }
 
   // Keep the outline's cast order; fall back to the outline entry if a sheet is missing.
   const written = new Map<string, GeneratedMystery['characters'][0]>()
@@ -459,7 +498,7 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
       name: o.name,
       role: c?.role || o.role,
       specialSkill: c?.specialSkill || o.specialSkill,
-      publicBio: c?.publicBio || o.publicBio,
+      publicBio: c?.publicBio || o.publicBio || '',
       privateSecrets: c?.privateSecrets || o.secretSummary,
       goals: c?.goals || '',
       tasks: Array.isArray(c?.tasks) ? c!.tasks : [],

@@ -7,7 +7,7 @@ const STEPS = [
   },
   {
     title: 'Get your mystery',
-    body: 'In a couple of minutes you have the whole evening: a character for every guest, clues spread over four acts, a host script, the reveal, and a menu to match.',
+    body: 'In a few minutes you have the whole evening: a character for every guest, clues spread over four acts, a host script, the reveal, and a menu to match.',
   },
   {
     title: 'Host the night',

@@ -136,6 +136,8 @@ interface MysteryOutline {
   }
   secondaryCrime: string
   redHerrings: string[]
+  facts: string[]
+  evidence: { act: string; givenTo: string; shows: string; pointsTo: string }[]
   actBeats: { act1: string; act2: string; act3: string; act4: string }
   characters: OutlineCharacter[]
 }
@@ -187,6 +189,9 @@ ${guestSection(config)}
 ## RULES
 - Exactly ${config.guestCount} playable characters. The victim is NOT a playable character; they die before or during Act 1.
 - Exactly one playable character is the killer. The solution must be provable from the evidence.
+- facts: the ground truth every later writer must respect. Who owns each key object, who was where, who did the secondary crime and how they hid it, and how the killer got access (for a locked room, exactly how). Later writers copy these, so make them specific and never contradictory.
+- evidence: the planned clue cards, in act order. Together the act1-act3 evidence must let a careful player prove the killer by connecting at least two items, without any single item naming them. Each item's "pointsTo" says privately what it proves; players never see that field. Every key fact in the solution (method, weapon, access, motive) must be backed by at least one evidence item. Act 4 has no evidence: it is for accusations.
+- Plan ${config.guestCount + 4} evidence items in total. Every character receives at least one, and red herrings count as evidence items.
 - Every character has a unique investigative skill that others must seek out, and a secret that links them to at least one other character.
 - Everything is themed to "${config.theme}".
 - This is a planning outline, not the finished writing: keep every field within its word limit. Later steps write the full text.
@@ -206,6 +211,10 @@ ${JSON_ONLY}
   },
   "secondaryCrime": "string (max 30 words: the smaller crime and who is involved)",
   "redHerrings": ["string (max 20 words each)"],
+  "facts": ["string (max 20 words each; 6-8 facts)"],
+  "evidence": [
+    { "act": "act1 | act2 | act3", "givenTo": "character name or 'all'", "shows": "string (max 25 words: what the clue physically shows)", "pointsTo": "string (max 15 words: what it proves, or 'red herring: ...')" }
+  ],
   "actBeats": { "act1": "string (max 40 words)", "act2": "string (max 40 words)", "act3": "string (max 40 words)", "act4": "string (max 40 words)" },
   "characters": [
     {
@@ -251,55 +260,63 @@ ${JSON_ONLY}
 }
 
 function hostActsPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  // Clue cards are written from outline.evidence, so the host can be told which to hand out when.
   return `${hostGuideBase(config, outline, 'the act-by-act instructions')}
 ${JSON_ONLY}
 {
   "act1": "string (200-350 words of host instructions for act 1)",
   "act2": "string (200-350 words)",
   "act3": "string (200-350 words)",
-  "act4": "string (150-300 words, ending as accusations begin)"
+  "act4": "string (150-300 words: no new clues; gather everyone, recap, and open accusations)"
 }`
 }
 
-function cluesPrompt(config: MysteryConfig, outline: MysteryOutline, template: MysteryTemplate): string {
-  return `You are a professional murder mystery writer. Write the CLUE CARDS for this dinner party game.
+function cluesPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+  return `You are a professional murder mystery writer. Write the CLUE CARDS for this dinner party game from the evidence plan in the outline.
 
 ${outlineContext(config, outline)}
 
-## CLUE LOGIC
-${JSON.stringify(template.clueLogic, null, 2)}
-
 ## RULES
-- The clues must make the solution definitively provable, with the key evidence revealed no earlier than act3.
-- Include the red herrings from the outline.
-- Spread clues so every character receives at least 2. Use exact character names in "givenTo", or "all" for clues read to everyone.
-- About ${Math.max(10, config.guestCount * 2 + 4)} clues in total.
+- Write exactly one clue card for each item in the outline's "evidence" list, in the same order, with the same act and recipient. Do not add, drop or move clues.
+- The card shows only what "shows" describes, written as the physical evidence a player would hold (a note, a receipt, a witness statement). The "pointsTo" field is for you only; never state its conclusion on the card.
+- No clue may name the killer as the killer, say who committed the murder, or explain the motive outright. Players must work it out by connecting clues.
+- Stay consistent with the outline's "facts": the same owners, initials, objects, times and places.
+- Use exact character names in "givenTo", or "all" for clues read to everyone.
 
 ${JSON_ONLY}
 {
   "clues": [
     {
       "id": "clue-1",
-      "title": "string",
+      "title": "string (max 6 words)",
       "content": "string (max 60 words: the clue text players read)",
-      "revealedIn": "act1 | act2 | act3 | act4",
+      "revealedIn": "act1 | act2 | act3",
       "givenTo": "string (character name or 'all')"
     }
   ]
 }`
 }
 
-function revealPrompt(config: MysteryConfig, outline: MysteryOutline): string {
+function revealPrompt(config: MysteryConfig, outline: MysteryOutline, clues: GeneratedMystery['clues']): string {
   return `You are a professional murder mystery writer. Write the ACCUSATION AND REVEAL scripts the host reads aloud at the end of this dinner party game.
 
 ${outlineContext(config, outline)}
+
+## THE CLUE CARDS PLAYERS ACTUALLY RECEIVED
+${JSON.stringify(clues.map((c) => ({ id: c.id, title: c.title, act: c.revealedIn, givenTo: c.givenTo, text: c.content })), null, 2)}
+
+## RULES
+- The reveal proves the solution step by step using ONLY the clue cards above, citing them by title. Do not introduce new evidence, new events or new crimes that no clue supports.
+- Match the clue cards and the outline's facts exactly: the same owners, initials, objects and times. If a clue was given to one character, do not say it belonged to another.
+- Explain how the killer had access, especially for any locked room, using the outline's facts.
+- Also explain each red herring briefly so players see why it misled them.
 
 ${JSON_ONLY}
 {
   "buildup": "string (100-200 words read aloud to build tension before accusations)",
   "accusationPrompt": "string (50-100 words the host says to prompt guests to accuse)",
-  "revealScript": "string (300-500 words: who did it, how and why, walking through the evidence)",
-  "epilogue": "string (one or two sentences per character on what became of them)"
+  "revealScript": "string (300-500 words: who did it, how and why, walking through the clue cards)",
+  "epilogue": "string (one short paragraph per playable character, each starting with the character's name and a colon, separated by blank lines)"
 }`
 }
 
@@ -343,7 +360,7 @@ ${outlineContext(config, outline)}
 ${guestSection(config)}
 ## RULES ("no boring characters")
 - Keep each character's name, role and specialSkill consistent with the outline, and write a publicBio that fits it.
-- privateSecrets: at least 2 secrets, one tied to the murder plot and one personal, and they must implicate or link to other named characters.
+- privateSecrets: at least 2 secrets, one tied to the murder plot and one personal, and they must implicate or link to other named characters. They must agree with the outline's "facts" and "evidence": if a character hid or moved something, say so in a way that matches the clue cards.
 - goals: must directly conflict with at least one other character's goals.
 - tasks: 3-5 concrete actions. At least one requires cooperating with a specific named character and at least one puts them in conflict with someone. Avoid vague tasks like "investigate the crime".
 - relationships: how they relate to every other character, including at least one hidden connection.
@@ -469,11 +486,16 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
     batches.push(names.slice(i, i + CHARACTERS_PER_BATCH))
   }
 
-  const [hostOverview, hostActs, clueResult, reveal, extras, ...characterBatches] = await Promise.all([
+  const [hostOverview, hostActs, cluesAndReveal, extras, ...characterBatches] = await Promise.all([
     callJSON<Pick<GeneratedMystery['hostGuide'], 'overview' | 'timeline' | 'tips'>>('host guide overview', hostOverviewPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
     callJSON<Pick<GeneratedMystery['hostGuide'], 'act1' | 'act2' | 'act3' | 'act4'>>('host guide acts', hostActsPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
-    callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline, template), STEP_MAX_TOKENS, onText, deadline),
-    callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
+    // The reveal is written after the clues (below) so it can only cite evidence players saw.
+    callJSON<{ clues: GeneratedMystery['clues'] }>('clues', cluesPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline).then(async (clueResult) => {
+      const clues = Array.isArray(clueResult.clues) ? clueResult.clues.filter((c) => c.revealedIn !== 'act4') : []
+      onProgress({ type: 'stage', message: 'Writing the reveal' })
+      const reveal = await callJSON<GeneratedMystery['reveal']>('reveal', revealPrompt(config, outline, clues), STEP_MAX_TOKENS, onText, deadline)
+      return { clues, reveal }
+    }),
     callJSON<Pick<GeneratedMystery, 'menu' | 'atmosphere'>>('menu', extrasPrompt(config, outline), STEP_MAX_TOKENS, onText, deadline),
     ...batches.map((batch, i) =>
       callJSON<{ characters: GeneratedMystery['characters'] }>(
@@ -517,8 +539,8 @@ export async function generateMystery(config: MysteryConfig, onProgress: Progres
     difficulty: config.difficulty,
     hostGuide,
     characters,
-    clues: Array.isArray(clueResult.clues) ? clueResult.clues : [],
-    reveal,
+    clues: cluesAndReveal.clues,
+    reveal: cluesAndReveal.reveal,
     menu: extras.menu,
     atmosphere: extras.atmosphere,
   }

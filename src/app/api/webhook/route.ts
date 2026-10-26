@@ -56,5 +56,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     difficulty: session.metadata?.difficulty || 'intermediate',
     amountPaid: session.amount_total || 0,
     successUrl: `${baseUrl}/success?session_id=${session.id}`,
+    supportUrl: `${baseUrl}/support?order=${session.id}`,
   })
 }

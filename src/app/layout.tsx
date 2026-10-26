@@ -76,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ul className="flex flex-wrap gap-x-6 gap-y-2">
               <li><a href="/join" className="hover:text-parchment">Join a game</a></li>
               <li><a href="/create" className="hover:text-parchment">Create a mystery</a></li>
-              <li><a href="mailto:support@killerparty.co" className="hover:text-parchment">support@killerparty.co</a></li>
+              <li><a href="/support" className="hover:text-parchment">Customer support</a></li>
             </ul>
             <p>&copy; {new Date().getFullYear()} Killer Party</p>
           </div>

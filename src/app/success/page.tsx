@@ -108,13 +108,10 @@ function SuccessContent() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
         <p className="text-blood-light font-display text-2xl mb-4">Your mystery wasn’t finished</p>
         <p className="text-gray-400 mb-6 max-w-md">{error}</p>
-        <p className="text-gray-500 text-sm">
-          Don&apos;t worry — your payment is safe. Please email{' '}
-          <a href="mailto:support@killerparty.co" className="text-gold underline">
-            support@killerparty.co
-          </a>{' '}
-          with your session ID and we&apos;ll get your mystery to you.
+        <p className="text-gray-300 text-sm max-w-md">
+          Your payment went through and is safe. Refresh this page to try again, or contact customer support and we’ll get your mystery to you.
         </p>
+        <a href={`/support?order=${encodeURIComponent(sessionId || '')}`} className="btn-primary mt-6">Contact customer support</a>
         <p className="text-gray-600 text-xs mt-4 font-mono">Session: {sessionId}</p>
       </div>
     )

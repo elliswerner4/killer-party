@@ -13,6 +13,7 @@ interface ConfirmationParams {
   difficulty: string
   amountPaid: number // in cents
   successUrl: string
+  supportUrl: string
 }
 
 function getResend(): Resend | null {
@@ -63,7 +64,7 @@ export async function sendPurchaseConfirmation(params: ConfirmationParams): Prom
       </p>
 
       <p style="color: #888; font-size: 13px; line-height: 1.6;">
-        Questions? Just reply to this email. Have a killer party.
+        Questions? <a href="${params.supportUrl}" style="color: #C9A84C;">Contact customer support</a>. Have a killer party.
       </p>
     </div>
   `
@@ -87,4 +88,58 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// ---------------------------------------------------------------------------
+// Customer support messages
+// The inbox address stays on the server: it is never sent to the browser,
+// and customers only ever see "Customer support".
+// ---------------------------------------------------------------------------
+
+const DEFAULT_SUPPORT_INBOX = 'killerpartygames@mail.grokbot.com'
+
+export interface SupportMessage {
+  name: string
+  email: string
+  topic: string
+  orderRef: string
+  message: string
+}
+
+export function supportEmailConfigured(): boolean {
+  return !!process.env.RESEND_API_KEY
+}
+
+/** Sends a support request to the inbox. Throws if it could not be sent. */
+export async function sendSupportMessage(msg: SupportMessage): Promise<void> {
+  const resend = getResend()
+  if (!resend) throw new Error('Email is not configured (RESEND_API_KEY is missing)')
+
+  const rows: [string, string][] = [
+    ['Name', msg.name],
+    ['Email', msg.email],
+    ['Topic', msg.topic],
+    ['Order or game', msg.orderRef || '(not given)'],
+  ]
+  const html = `
+    <div style="font-family: system-ui, sans-serif; max-width: 600px; color: #1a1a1a;">
+      <h2 style="margin: 0 0 16px;">Support request: ${escapeHtml(msg.topic)}</h2>
+      <table style="border-collapse: collapse; margin-bottom: 20px;">
+        ${rows.map(([k, v]) => `<tr><td style="padding: 4px 16px 4px 0; color: #666;">${k}</td><td style="padding: 4px 0;">${escapeHtml(v)}</td></tr>`).join('')}
+      </table>
+      <div style="white-space: pre-wrap; line-height: 1.5; border-top: 1px solid #ddd; padding-top: 16px;">${escapeHtml(msg.message)}</div>
+      <p style="color: #888; font-size: 12px; margin-top: 24px;">Reply to this email to answer ${escapeHtml(msg.name)} directly.</p>
+    </div>
+  `
+  const text = `${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\n${msg.message}`
+
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
+    to: process.env.SUPPORT_EMAIL || DEFAULT_SUPPORT_INBOX,
+    replyTo: msg.email,
+    subject: `[Support] ${msg.topic}: ${msg.name}`,
+    html,
+    text,
+  })
+  if (error) throw new Error(`Resend rejected the message: ${error.message}`)
 }

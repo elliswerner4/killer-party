@@ -8,8 +8,10 @@ Killer Party is a full-stack web app I designed and built on my own, with AI cod
 
 ## What it shows
 
-- **A working product, end to end.** Landing page, checkout, payment webhook, AI generation, delivery, confirmation email and a guest companion app.
-- **Constrained AI output.** Four hand-written plot templates fix the solution and the clue chain, and the model writes the customization around them. Output streams to the browser, truncated responses are caught by checking the stop reason, and errors appear on screen instead of failing silently.
+- **A working product, end to end.** Landing page, checkout, payment webhook, AI generation, delivery, confirmation email, a support form and a guest companion app.
+- **A multi-step generation pipeline.** One call writes an outline that fixes the solution, the cast and an evidence plan. The host guide, character sheets, clues and menu are then written from that outline in parallel, so a 10,000 to 20,000-token package finishes inside Vercel's 300-second limit.
+- **Checked for consistency.** The reveal is written after the clue cards and may cite only them. A final continuity step compares every claim in the reveal with the exact clue text and rewrites anything it adds or contradicts. Four hand-written plot templates fix who did it.
+- **Fails loudly, not silently.** Each step checks the stop reason for truncation, retries once on failure, and runs against a 280-second time budget, so customers see a clear message instead of a stream that just stops.
 - **Money is spent only after payment.** The server confirms with Stripe that a checkout session is paid before it calls the model, so unpaid requests can't run up API costs.
 
 ## How it works
@@ -17,7 +19,7 @@ Killer Party is a full-stack web app I designed and built on my own, with AI cod
 1. The host customizes a mystery (theme, guests, difficulty, special requests).
 2. They pay through Stripe Checkout ($35 Classic / $49 Grand).
 3. Checkout saves the full order to Vercel KV, which gets around Stripe's 500-character metadata limit.
-4. Once the server confirms with Stripe that the session is paid, it streams a custom mystery from the Claude API, built on one of the plot templates.
+4. Once the server confirms with Stripe that the session is paid, it runs the generation pipeline on the Claude API, streaming progress to the browser.
 5. A signature-verified Stripe webhook sends the confirmation email.
 6. The host gets the full package and a shareable game code.
 7. Guests open the game link, pick their character and get private clues on their phones.
@@ -37,15 +39,15 @@ Killer Party is a full-stack web app I designed and built on my own, with AI cod
 
 Fully AI-written mysteries often end up unsolvable. Fully templated ones feel generic. Killer Party splits the work:
 
-- **Templates hold the logic.** Each template fixes who did it and how the clues point there.
+- **Templates and the outline hold the logic.** The template fixes who did it; the outline fixes the facts and which clue proves what.
 - **AI handles everything else.** Theme, characters, dialogue, menu and atmosphere are rewritten for each order, using real guest names if the host provides them.
-- **Cost stays bounded.** The AI only writes the customization layer, and output is capped at 32,000 tokens.
+- **Cost stays bounded.** Each step has a 16,000-token ceiling, and up-front model thinking is turned off because these steps are writing, not reasoning.
 
 ## Costs per sale
 
 - Vercel: free tier covers about 100K requests a month
 - Stripe: 2.9% + $0.30 per transaction
-- Claude API: one generation per order, capped at 32,000 output tokens
+- Claude API: one pipeline run per order, 16,000-token ceiling per step
 
 ## Run it locally
 
